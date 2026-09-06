@@ -5,7 +5,7 @@ export const NETWORK=Object.freeze({
  treasuryAddress:"krk1d1ee0261919684cf511b9bd702697b5c4816c61e",
  initialReward:50n*100_000_000n,halvingInterval:2_100_000,
  rewardBlockTimeMs:Number(process.env.KOREK_BLOCK_TIME_MS||60_000),
- finalityTargetMs:200,difficulty:Number(process.env.KOREK_DIFFICULTY||3),finalityMode:"rapid-testnet",
+ finalityTargetMs:200,difficulty:Number(process.env.KOREK_DIFFICULTY||7),finalityMode:"rapid-testnet",
  nodeMinerAddress:process.env.KOREK_BLOCK_PRODUCER||`krk1${"0".repeat(40)}`,apiPort:Number(process.env.KOREK_PORT||8365),
 });
 export function rewardAtHeight(height){const halvings=Math.floor(height/NETWORK.halvingInterval);return halvings>=64?0n:NETWORK.initialReward>>BigInt(halvings)}
