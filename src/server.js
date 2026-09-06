@@ -47,8 +47,8 @@ if(p2pRequested){p2p=new P2PNetwork({identity:nodeKey,name:nodeName,port:p2pPort
 const apiServer=createServer(async(req,res)=>{try{const url=new URL(req.url,`http://${req.headers.host}`);
  if(req.method==="GET"&&url.pathname==="/api/status")return json(res,200,nodeStatus(),true);
  if(req.method==="GET"&&url.pathname==="/api/peers")return json(res,200,p2p?.publicPeers()||[],true);
- if(req.method==="GET"&&url.pathname==="/api/blocks"){const limit=Math.min(maxBlocks,Number(url.searchParams.get("limit")||50));return json(res,200,chain.chain.slice(-limit).reverse(),true)}
- if(req.method==="GET"&&url.pathname==="/api/transactions")return json(res,200,chain.transactions(),true);
+ if(req.method==="GET"&&url.pathname==="/api/blocks"){const limit=Math.max(1,Math.min(500,Number(url.searchParams.get("limit")||50)));return json(res,200,chain.chain.slice(-limit).reverse(),true)}
+ if(req.method==="GET"&&url.pathname==="/api/transactions"){const limit=Math.max(1,Math.min(500,Number(url.searchParams.get("limit")||100)));return json(res,200,chain.transactions().slice(0,limit),true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/transaction/")){const tx=chain.transaction(url.pathname.split("/").at(-1));return tx?json(res,200,tx,true):json(res,404,{error:"Transaction not found"},true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/block/")){const block=chain.block(url.pathname.split("/").at(-1));return block?json(res,200,block,true):json(res,404,{error:"Block not found"},true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/balance/")){const address=url.pathname.split("/").at(-1);return json(res,200,{address,balance:chain.balance(address)},true)}

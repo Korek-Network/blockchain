@@ -1,70 +1,45 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#07110f">
-  <meta name="description" content="KOREK blockchain explorer for blocks, transactions and addresses.">
-  <title>KOREKSCAN — Blockchain Explorer</title>
+  <meta name="theme-color" content="#f4f7f6">
+  <meta name="description" content="KOREKScan explorer and live analytics for the KOREK Planck network.">
+  <title>KOREKScan — Planck Explorer</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#/" aria-label="KOREKSCAN home"><span class="mark">K</span><span>KOREK<b>SCAN</b></span></a>
-    <nav class="links" aria-label="KOREK resources">
-      <a href="https://github.com/Korek-Network/wallet/releases/tag/wallet-testnet-latest">Download wallet</a>
-      <a href="https://github.com/Korek-Network/blockchain/blob/main/docs/MINING_AND_NODE.md">Node &amp; mining docs</a>
+    <a class="brand" href="#/" aria-label="KOREKScan home"><span class="brand-mark">K</span><span>KOREK<b>SCAN</b></span></a>
+    <nav aria-label="Explorer navigation">
+      <a href="#/transactions" data-nav="transactions">Transactions</a>
+      <a href="#/analytics" data-nav="analytics">Analytics</a>
+      <a href="#/nodes" data-nav="nodes">Nodes</a>
+      <a href="#/blocks" data-nav="blocks">Blocks</a>
+      <a href="#/mining" data-nav="mining">Mining</a>
     </nav>
-    <div class="network"><i id="networkDot"></i><span id="networkName">Connecting…</span></div>
+    <div class="top-actions">
+      <span class="network-select"><i id="networkDot"></i><span id="networkName">Connecting</span><b>Planck Testnet</b></span>
+      <button id="themeButton" class="icon-button" aria-label="Toggle theme">◐</button>
+      <button id="menuButton" class="icon-button menu-button" aria-label="Open navigation">☰</button>
+    </div>
   </header>
-
-  <main>
-    <section class="search-hero">
-      <p class="eyebrow">KOREK BLOCKCHAIN EXPLORER</p>
-      <h1>Explore the network.</h1>
-      <form id="searchForm" class="search" role="search">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
-        <input id="searchInput" autocomplete="off" spellcheck="false" placeholder="Search by block height, block hash, transaction hash or address">
-        <button>Search</button>
-      </form>
-      <p id="searchError" class="form-error" aria-live="polite"></p>
-    </section>
-
-    <section id="overviewView" class="view">
-      <div class="metrics">
-        <article><span>Latest block</span><strong id="height">—</strong><small id="blockAge">Waiting for node</small></article>
-        <article><span>Reward blocks</span><strong id="rewardBlocks">—</strong><small>mining blocks confirmed</small></article>
-        <article><span>Transactions</span><strong id="txCount">—</strong><small id="pending">— pending</small></article>
-        <article><span>Mined supply</span><strong id="supply">—</strong><small>of 365,000,000 KRK max</small></article>
-        <article><span>Network fee</span><strong id="fee">—</strong><small>standard transfer</small></article>
-      </div>
-
-      <div class="split">
-        <section class="panel">
-          <div class="panel-head"><div><p class="eyebrow">CHAIN</p><h2>Latest blocks</h2></div><span class="live"><i></i> Live</span></div>
-          <div class="table-scroll"><table><thead><tr><th>Block</th><th>Age</th><th>Transactions</th><th>Reward</th></tr></thead><tbody id="blocks"></tbody></table></div>
-        </section>
-        <section class="panel">
-          <div class="panel-head"><div><p class="eyebrow">ACTIVITY</p><h2>Latest transactions</h2></div></div>
-          <div class="table-scroll"><table><thead><tr><th>Transaction</th><th>From / To</th><th>Value</th><th>Status</th></tr></thead><tbody id="transactions"></tbody></table></div>
-        </section>
-      </div>
-
-      <section class="panel mining-panel">
-        <div class="panel-head"><div><p class="eyebrow">MINING</p><h2>Mining rewards</h2></div><span class="live"><i></i> Reward blocks</span></div>
-        <div class="table-scroll"><table><thead><tr><th>Block</th><th>Wormhole reward address</th><th>Block reward</th><th>Mined</th></tr></thead><tbody id="miningRewards"></tbody></table></div>
-      </section>
-    </section>
-
-    <section id="detailView" class="view" hidden>
-      <button id="backButton" class="back">← Explorer overview</button>
-      <div class="detail-title"><div><p id="detailType" class="eyebrow"></p><h1 id="detailTitle"></h1></div><span id="detailStatus" class="status"></span></div>
-      <section class="panel detail-panel"><div id="detailRows"></div></section>
-      <section id="nestedPanel" class="panel nested" hidden><div class="panel-head"><div><p class="eyebrow">ACTIVITY</p><h2>Transactions in this block</h2></div></div><div class="table-scroll"><table><thead><tr><th>Transaction</th><th>From</th><th>To</th><th>Value</th></tr></thead><tbody id="nestedRows"></tbody></table></div></section>
-    </section>
+  <div class="search-wrap">
+    <form id="searchForm" class="search" role="search">
+      <span aria-hidden="true">⌕</span>
+      <input id="searchInput" autocomplete="off" spellcheck="false" placeholder="Search address, transaction hash, block height or block hash">
+      <kbd>/</kbd>
+    </form>
+    <p id="searchError" class="search-error" aria-live="polite"></p>
+  </div>
+  <main id="main">
+    <header class="page-head">
+      <div><p id="pageEyebrow" class="eyebrow">PLANCK TESTNET</p><h1 id="pageTitle">Network overview</h1><p id="pageSubtitle">Live blocks, transactions and mining activity.</p></div>
+      <span id="liveBadge" class="live-badge"><i></i> Live</span>
+    </header>
+    <div id="content"></div>
   </main>
-
-  <footer><span>KOREKSCAN</span><span id="footerNetwork">KOREK network explorer</span><a href="https://github.com/Korek-Network/blockchain">Source code ↗</a></footer>
+  <footer><a class="brand mini" href="#/"><span class="brand-mark">K</span><span>KOREK<b>SCAN</b></span></a><span id="footerStatus">Planck testnet explorer</span><a href="https://github.com/Korek-Network/blockchain">Source code ↗</a></footer>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
