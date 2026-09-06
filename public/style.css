@@ -4,3 +4,7 @@
 .links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:700;padding:8px 12px;border:1px solid transparent;border-radius:7px;transition:.15s}
 .links a:hover{color:var(--text);border-color:var(--line);background:var(--surface)}
 @media(max-width:760px){.links{margin-right:10px;gap:2px}.links a{font-size:0;padding:8px}.links a:first-child:after{content:"Wallet";font-size:12px}.links a:last-child:after{content:"Docs";font-size:12px}.network span{display:none}}
+.metrics{grid-template-columns:repeat(5,1fr)}
+.mining-panel{margin-top:18px}.mining-panel td a{color:var(--cyan);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none}.reward{color:var(--green)}
+@media(max-width:1050px){.metrics{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.metrics{grid-template-columns:1fr}}

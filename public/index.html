@@ -33,6 +33,7 @@
     <section id="overviewView" class="view">
       <div class="metrics">
         <article><span>Latest block</span><strong id="height">—</strong><small id="blockAge">Waiting for node</small></article>
+        <article><span>Reward blocks</span><strong id="rewardBlocks">—</strong><small>mining blocks confirmed</small></article>
         <article><span>Transactions</span><strong id="txCount">—</strong><small id="pending">— pending</small></article>
         <article><span>Mined supply</span><strong id="supply">—</strong><small>of 365,000,000 KRK max</small></article>
         <article><span>Network fee</span><strong id="fee">—</strong><small>standard transfer</small></article>
@@ -48,6 +49,11 @@
           <div class="table-scroll"><table><thead><tr><th>Transaction</th><th>From / To</th><th>Value</th><th>Status</th></tr></thead><tbody id="transactions"></tbody></table></div>
         </section>
       </div>
+
+      <section class="panel mining-panel">
+        <div class="panel-head"><div><p class="eyebrow">MINING</p><h2>Mining rewards</h2></div><span class="live"><i></i> Reward blocks</span></div>
+        <div class="table-scroll"><table><thead><tr><th>Block</th><th>Wormhole reward address</th><th>Block reward</th><th>Mined</th></tr></thead><tbody id="miningRewards"></tbody></table></div>
+      </section>
     </section>
 
     <section id="detailView" class="view" hidden>
