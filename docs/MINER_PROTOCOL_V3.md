@@ -8,6 +8,8 @@ Protocol identifier: `korek-planck-miner/3`
 
 Protocol v3 moves proof-of-work from the node to the miner's selected hardware. The node issues a short-lived template, the desktop miner hashes locally, and the node independently verifies a wallet-signed proof before issuing KRK.
 
+Each Planck template binds the total subsidy, the 95% miner portion, the 5% treasury portion, the treasury address, and the accumulated transaction-fee payout. Any payout change invalidates the template. Transaction fees are paid entirely to the successful miner.
+
 ## Proof algorithm
 
 1. Decode the 32-byte hexadecimal `challenge`.
@@ -64,4 +66,3 @@ Nodes reject wrong wallet ownership, invalid signatures, expired timestamps, rep
 ## Mainnet gate
 
 Mainnet activation requires an independent consensus/security audit, GPU kernel validation on supported vendors, protocol fuzzing, sustained public load testing, difficulty-adjustment review, signed reproducible binaries, and a testnet reset/upgrade plan.
-
