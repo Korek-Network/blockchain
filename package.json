@@ -1,6 +1,6 @@
 {
   "name": "korek-blockchain",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "KOREK Planck testnet blockchain node, wormhole mining, faucet and explorer",
@@ -12,7 +12,8 @@
     "key": "node scripts/key.mjs --scheme wormhole",
     "node:key": "node scripts/node-key.mjs",
     "version": "node src/server.js --version",
-    "test": "node --test"
+    "test": "node --test",
+    "benchmark:transactions": "node scripts/benchmark-transactions.mjs"
   },
   "engines": { "node": ">=22" },
   "repository": { "type": "git", "url": "git+https://github.com/Korek-Network/blockchain.git" },
