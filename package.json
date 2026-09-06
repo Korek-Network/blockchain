@@ -7,8 +7,6 @@
   "scripts": {
     "start": "node src/server.js",
     "node": "node src/server.js",
-    "mine": "node src/server.js --mine",
-    "mine:remote": "node scripts/miner.mjs",
     "key": "node scripts/key.mjs --scheme wormhole",
     "node:key": "node scripts/node-key.mjs",
     "version": "node src/server.js --version",
