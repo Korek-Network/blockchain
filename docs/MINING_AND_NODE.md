@@ -2,7 +2,7 @@
 
 This guide covers creating a KOREK wormhole reward account, running a Planck testnet node, and mining test KRK on macOS, Linux, and Windows through WSL2.
 
-> Planck v0.4 is experimental testnet software. It persists a verified local chain snapshot, but there is no production peer-to-peer discovery or consensus layer. Mining is a CPU proof-of-work prototype; GPU/AI useful-work verification is not yet active. Test KRK has no monetary value.
+> Planck v0.5 is experimental testnet software. It supports signed peer discovery and longer-chain snapshot synchronization, but it does not yet provide production consensus or hostile-fork resistance. Mining is a CPU proof-of-work prototype; GPU/AI useful-work verification is not yet active. Test KRK has no monetary value.
 
 ## Prerequisites
 
@@ -60,7 +60,7 @@ The script validates Node.js, creates or restores the wormhole account, asks for
 
 ## Standalone node and miner binaries
 
-Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.4.0 package contains:
+Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.5.0 package contains:
 
 - `korek-node` — Planck node, REST API, explorer, and miner-protocol server
 - `korek-miner` — separate miner client
@@ -97,6 +97,8 @@ Replace `<YOUR_NODE_NAME>` and `<YOUR_INNER_HASH>` before running:
   --miner-listen-port 9833 \
   --chain planck \
   --node-key-file node_key.p2p \
+  --p2p-port 9333 \
+  --p2p-advertise http://YOUR_NODE_IP:9333 \
   --rewards-inner-hash <YOUR_INNER_HASH> \
   --max-blocks-per-request 64 \
   --sync full
@@ -120,7 +122,9 @@ The node and miner must use the same `korek-planck-miner/1` protocol version. A 
 
 ### Note on syncing
 
-Planck v0.3 accepts `--sync full` and exposes sync state in its status API, but the current state is always `Idle` in standalone mode because P2P discovery and chain synchronization are not implemented yet. It therefore cannot download a public chain tip, detect orphan blocks across peers, or pause based on peer count. Do not interpret `Idle` as proof of public-network consensus. Real peer syncing, fork choice, orphan handling, authenticated transport, and telemetry are upcoming protocol work.
+Planck v0.5 polls configured seed peers, verifies their Ed25519 node identity and network/protocol handshake, discovers advertised peers, and adopts a longer snapshot after the existing block-linkage and supply checks pass. Add a seed with `--peer http://NODE_IP:9333`. The miner pauses while all configured peers are offline or while synchronization is active.
+
+This is a functional testnet synchronization layer, not production consensus. It assumes honest compatible peers and does not yet resolve hostile equal-height forks, score cumulative work, authenticate trust policy, or stream bounded block batches. See [Running a local P2P testnet](P2P_TESTNET.md).
 
 ## Manual setup
 
@@ -212,4 +216,5 @@ Rapid transaction-finality blocks do not mint KRK and do not advance the mining 
 - **Invalid inner hash:** copy all 64 hexadecimal characters with no `0x` prefix.
 - **Port already in use:** stop the earlier node, or set another port: `KOREK_PORT=8366 npm start`.
 - **Wallet says Offline:** confirm the node is running and enter the correct reachable URL in the wallet.
-- **State fails to load:** preserve the data directory and its `chain-state.json` for recovery; the node refuses snapshots with an invalid checksum or block linkage. P2P recovery is not implemented yet.
+- **State fails to load:** preserve the data directory and its `chain-state.json` for recovery; the node refuses snapshots with an invalid checksum or block linkage.
+- **Peer remains Offline:** verify both nodes use v0.5, the P2P port is reachable, and the seed URL begins with `http://` or `https://`.

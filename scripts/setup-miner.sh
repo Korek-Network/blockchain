@@ -14,4 +14,4 @@ if [[ ! "$inner_hash" =~ ^[0-9a-fA-F]{64}$ ]]; then echo "Invalid inner hash."; 
 read -r -p "Node name [my-korek-node]: " node_name
 node_name="${node_name:-my-korek-node}"
 echo "Starting the Planck node with its built-in prototype miner. Press Ctrl+C to stop."
-npm run mine -- --name "$node_name" --validator --chain planck --node-key-file node_key.p2p --miner-listen-port 9833 --rewards-inner-hash "$inner_hash" --max-blocks-per-request 64 --sync full
+npm run mine -- --name "$node_name" --validator --chain planck --node-key-file node_key.p2p --p2p-port 9333 --p2p-advertise http://127.0.0.1:9333 --miner-listen-port 9833 --rewards-inner-hash "$inner_hash" --max-blocks-per-request 64 --sync full
