@@ -2,7 +2,7 @@
 
 This guide covers creating a KOREK wormhole reward account, running a Planck testnet node, and mining test KRK on macOS, Linux, and Windows through WSL2.
 
-> Planck v0.5 is experimental testnet software. It supports signed peer discovery and longer-chain snapshot synchronization, but it does not yet provide production consensus or hostile-fork resistance. Mining is a CPU proof-of-work prototype; GPU/AI useful-work verification is not yet active. Test KRK has no monetary value.
+> Planck v0.6 is experimental testnet software. It supports signed peer discovery, longer-chain snapshot synchronization, and authenticated TLS miner connections, but it does not yet provide production consensus or hostile-fork resistance. Mining is a CPU proof-of-work prototype; GPU/AI useful-work verification is not yet active. Test KRK has no monetary value.
 
 ## Prerequisites
 
@@ -60,7 +60,7 @@ The script validates Node.js, creates or restores the wormhole account, asks for
 
 ## Standalone node and miner binaries
 
-Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.5.0 package contains:
+Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.6.0 package contains:
 
 - `korek-node` — Planck node, REST API, explorer, and miner-protocol server
 - `korek-miner` — separate miner client
@@ -118,11 +118,11 @@ In another terminal, from the same extracted directory:
   --rewards-inner-hash <YOUR_INNER_HASH>
 ```
 
-The node and miner must use the same `korek-planck-miner/1` protocol version. A mismatch is rejected with an upgrade-required error. This is currently an HTTP version handshake, not authenticated TLS/ALPN; authenticated transport is required before a public network launch.
+The node and miner must use the same `korek-planck-miner/2` protocol version. A mismatch is rejected with an upgrade-required error. Localhost mining is intentionally bound to `127.0.0.1`. See [Secure node-to-miner connection](SECURE_MINER.md) for authenticated TLS access from another machine.
 
 ### Note on syncing
 
-Planck v0.5 polls configured seed peers, verifies their Ed25519 node identity and network/protocol handshake, discovers advertised peers, and adopts a longer snapshot after the existing block-linkage and supply checks pass. Add a seed with `--peer http://NODE_IP:9333`. The miner pauses while all configured peers are offline or while synchronization is active.
+Planck v0.6 polls configured seed peers, verifies their Ed25519 node identity and network/protocol handshake, discovers advertised peers, and adopts a longer snapshot after the existing block-linkage and supply checks pass. Add a seed with `--peer http://NODE_IP:9333`. The miner pauses while all configured peers are offline or while synchronization is active.
 
 This is a functional testnet synchronization layer, not production consensus. It assumes honest compatible peers and does not yet resolve hostile equal-height forks, score cumulative work, authenticate trust policy, or stream bounded block batches. See [Running a local P2P testnet](P2P_TESTNET.md).
 
@@ -173,15 +173,15 @@ Start the node without its built-in miner:
 npm start
 ```
 
-Then run a miner process on the same machine or another machine that can reach the node's miner port:
+Then run a miner process on the same machine:
 
 ```bash
 npm run mine:remote -- \
-  --node-url http://NODE_IP:9833 \
+  --node-url http://127.0.0.1:9833 \
   --rewards-inner-hash YOUR_64_CHARACTER_INNER_HASH
 ```
 
-For a machine on your local network, replace `NODE_IP` with the node computer's LAN address and allow TCP port `9833` through its firewall. Do not expose this unauthenticated prototype protocol directly to the public internet.
+For another computer, do not expose plain HTTP. Configure TLS and a shared authentication token as described in [Secure node-to-miner connection](SECURE_MINER.md). The node refuses a non-loopback miner bind without both controls.
 
 ### 5. Open the wallet
 
@@ -217,4 +217,6 @@ Rapid transaction-finality blocks do not mint KRK and do not advance the mining 
 - **Port already in use:** stop the earlier node, or set another port: `KOREK_PORT=8366 npm start`.
 - **Wallet says Offline:** confirm the node is running and enter the correct reachable URL in the wallet.
 - **State fails to load:** preserve the data directory and its `chain-state.json` for recovery; the node refuses snapshots with an invalid checksum or block linkage.
-- **Peer remains Offline:** verify both nodes use v0.5, the P2P port is reachable, and the seed URL begins with `http://` or `https://`.
+- **Peer remains Offline:** verify both nodes use v0.6, the P2P port is reachable, and the seed URL begins with `http://` or `https://`.
+- **Remote miner bind refused:** a non-loopback `--miner-host` requires `--miner-auth-token`, `--miner-tls-cert`, and `--miner-tls-key`.
+- **Miner authentication fails:** verify both sides use exactly the same 32+ character token and synchronize their system clocks.

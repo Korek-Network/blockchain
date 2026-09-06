@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname,extname,join,normalize } from "node:path";
@@ -6,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { KorekChain } from "./blockchain.js";
 import { NETWORK } from "./config.js";
 import { cryptoProvider,wormholeAddressFromInnerHash } from "./crypto.js";
+import { MinerAuthVerifier } from "./miner-auth.js";
 import { P2PNetwork } from "./p2p.js";
 import { CHAIN_NAME,MINER_PROTOCOL,NODE_PROTOCOL,NODE_VERSION } from "./protocol.js";
 import { StateStore } from "./storage.js";
@@ -13,10 +15,14 @@ import { StateStore } from "./storage.js";
 const arg=name=>{const prefix=`--${name}=`;const inline=process.argv.find(value=>value.startsWith(prefix));if(inline)return inline.slice(prefix.length);const at=process.argv.indexOf(`--${name}`);return at>=0?process.argv[at+1]:undefined};
 const args=name=>{const values=[];for(let index=0;index<process.argv.length;index++){const value=process.argv[index],prefix=`--${name}=`;if(value.startsWith(prefix))values.push(value.slice(prefix.length));else if(value===`--${name}`&&process.argv[index+1])values.push(process.argv[++index])}return values};
 if(process.argv.includes("--version")){console.log(`korek-node ${NODE_VERSION} · ${CHAIN_NAME} · ${MINER_PROTOCOL} · ${NODE_PROTOCOL}`);process.exit(0)}
-if(process.argv.includes("--help")){console.log(`KOREK node ${NODE_VERSION}\n\n--name NAME\n--validator\n--miner-listen-port PORT\n--chain planck\n--node-key-file FILE\n--p2p-port PORT\n--p2p-advertise URL\n--peer URL (repeatable)\n--rewards-inner-hash HASH\n--max-blocks-per-request NUMBER\n--sync full\n--data-dir DIRECTORY\n--mine\n`);process.exit(0)}
+if(process.argv.includes("--help")){console.log(`KOREK node ${NODE_VERSION}\n\n--name NAME\n--validator\n--miner-host HOST\n--miner-listen-port PORT\n--miner-auth-token TOKEN\n--miner-tls-cert FILE\n--miner-tls-key FILE\n--chain planck\n--node-key-file FILE\n--p2p-port PORT\n--p2p-advertise URL\n--peer URL (repeatable)\n--rewards-inner-hash HASH\n--max-blocks-per-request NUMBER\n--sync full\n--data-dir DIRECTORY\n--mine\n`);process.exit(0)}
 
 const chainName=arg("chain")||CHAIN_NAME;if(chainName!==CHAIN_NAME)throw new Error(`Unsupported chain '${chainName}'. Use --chain planck.`);
 const nodeName=arg("name")||process.env.KOREK_NODE_NAME||"korek-planck-node",validator=process.argv.includes("--validator"),syncMode=arg("sync")||"full",maxBlocks=Math.max(1,Math.min(256,Number(arg("max-blocks-per-request")||64))),minerPort=Number(arg("miner-listen-port")||process.env.KOREK_MINER_PORT||9833),nodeKeyFile=arg("node-key-file");
+const minerHost=arg("miner-host")||process.env.KOREK_MINER_HOST||"127.0.0.1",minerAuthToken=arg("miner-auth-token")||process.env.KOREK_MINER_AUTH_TOKEN,minerTlsCert=arg("miner-tls-cert")||process.env.KOREK_MINER_TLS_CERT,minerTlsKey=arg("miner-tls-key")||process.env.KOREK_MINER_TLS_KEY,minerTls=Boolean(minerTlsCert&&minerTlsKey),loopbackMiner=["127.0.0.1","::1","localhost"].includes(minerHost);
+if(Boolean(minerTlsCert)!==Boolean(minerTlsKey))throw new Error("Both --miner-tls-cert and --miner-tls-key are required");
+if(!loopbackMiner&&(!minerTls||!minerAuthToken))throw new Error("A non-loopback miner endpoint requires TLS and --miner-auth-token");
+const minerVerifier=minerAuthToken?new MinerAuthVerifier(minerAuthToken):null,minerTlsOptions=minerTls?{cert:await readFile(minerTlsCert),key:await readFile(minerTlsKey)}:null;
 const peerSeeds=[...args("peer"),...(process.env.KOREK_PEERS||"").split(",")].filter(Boolean),p2pRequested=Boolean(nodeKeyFile&&(arg("p2p-port")||process.env.KOREK_P2P_PORT||peerSeeds.length)),p2pPort=p2pRequested?Number(arg("p2p-port")||process.env.KOREK_P2P_PORT||9333):null,p2pAdvertise=arg("p2p-advertise")||process.env.KOREK_P2P_ADVERTISE;
 const miningEnabled=process.argv.includes("--mine")||process.env.KOREK_MINE==="1",rewardsInnerHash=arg("rewards-inner-hash")||process.env.KOREK_REWARDS_INNER_HASH;
 let rewardsAddress=null,nodeKey=null,mining=false;if(rewardsInnerHash)rewardsAddress=wormholeAddressFromInnerHash(rewardsInnerHash);if(miningEnabled&&!rewardsAddress)throw new Error("Built-in mining requires --rewards-inner-hash <64 hex characters>");
@@ -27,9 +33,10 @@ let chain=savedState?KorekChain.fromSnapshot(savedState):new KorekChain();const 
 const sync={mode:syncMode,state:"Idle",peers:0,note:p2pRequested?"Signed Planck peer synchronization enabled":"P2P disabled; pass --node-key-file and --p2p-port"};
 const json=(res,status,value,cors=false)=>{res.writeHead(status,{"content-type":"application/json",...(cors?{"access-control-allow-origin":"*"}:{})});res.end(JSON.stringify(value,(_key,item)=>typeof item==="bigint"?item.toString():item))};
 const body=async req=>{const chunks=[];for await(const chunk of req)chunks.push(chunk);return JSON.parse(Buffer.concat(chunks)||"{}")};
+const rawBody=async req=>{const chunks=[];for await(const chunk of req)chunks.push(chunk);return Buffer.concat(chunks).toString("utf8")};
 let p2p=null;
 const updateSync=()=>{if(!p2p)return;const status=p2p.networkStatus();sync.state=status.state;sync.peers=status.connectedPeers;sync.note=status.lastError||"Signed Planck peer synchronization enabled"};
-const nodeStatus=()=>({...chain.status(),version:NODE_VERSION,chain:chainName,name:nodeName,validator,nodeIdentity:nodeKey?.peerId||null,dataDirectory,persistent:true,minerProtocol:MINER_PROTOCOL,minerListenPort:minerPort,maxBlocksPerRequest:maxBlocks,sync,p2p:p2p?.networkStatus()||{enabled:false},mining:{enabled:miningEnabled,rewardsAddress}});
+const nodeStatus=()=>({...chain.status(),version:NODE_VERSION,chain:chainName,name:nodeName,validator,nodeIdentity:nodeKey?.peerId||null,dataDirectory,persistent:true,minerProtocol:MINER_PROTOCOL,minerListenPort:minerPort,minerTransport:{host:minerHost,tls:minerTls,authenticated:Boolean(minerVerifier)},maxBlocksPerRequest:maxBlocks,sync,p2p:p2p?.networkStatus()||{enabled:false},mining:{enabled:miningEnabled,rewardsAddress}});
 const rewardAddress=input=>input.rewardsInnerHash?wormholeAddressFromInnerHash(input.rewardsInnerHash):input.address;
 const mineInput=input=>{const miner=rewardAddress(input),queued=[...jobs.values()].find(job=>job.status==="queued");if(queued){queued.status="verified-prototype";queued.miner=miner;queued.completedAt=Date.now()}return chain.mine(miner,queued?{type:"ai-job",jobId:queued.id,score:1}:{type:"security-pow",score:0})};
 const mineAndSave=async input=>{const block=mineInput(input);await stateStore.save(chain.snapshot());return block};
@@ -52,8 +59,9 @@ const apiServer=createServer(async(req,res)=>{try{const url=new URL(req.url,`htt
  if(req.method==="POST"&&url.pathname==="/api/mine")return json(res,201,await mineAndSave(await body(req)),true);
  if(req.method!=="GET")return json(res,404,{error:"Not found"},true);const relative=url.pathname==="/"?"index.html":url.pathname.replace(/^\//,""),file=normalize(join(root,relative));if(!file.startsWith(root))return json(res,403,{error:"Forbidden"},true);let contents;try{contents=await readFile(file)}catch(error){if(error.code==="ENOENT")return json(res,404,{error:"File not found"},true);throw error}const types={".html":"text/html",".css":"text/css",".js":"text/javascript",".ico":"image/x-icon"};res.writeHead(200,{"content-type":types[extname(file)]||"application/octet-stream"});res.end(contents)
  }catch(error){if(res.headersSent)return res.end();json(res,400,{error:error.message},true)}});
-const minerServer=createServer(async(req,res)=>{try{if(req.headers["x-korek-miner-protocol"]!==MINER_PROTOCOL)return json(res,426,{error:`Miner protocol mismatch; node requires ${MINER_PROTOCOL}`});const url=new URL(req.url,`http://${req.headers.host}`);if(req.method==="GET"&&url.pathname==="/status")return json(res,200,nodeStatus());if(req.method==="POST"&&url.pathname==="/mine"){updateSync();if(sync.state!=="Idle")return json(res,409,{error:`Node is ${sync.state}; mining paused`});return json(res,201,await mineAndSave(await body(req)))}return json(res,404,{error:"Not found"})}catch(error){if(res.headersSent)return res.end();json(res,400,{error:error.message})}});
+const minerHandler=async(req,res)=>{try{if(req.headers["x-korek-miner-protocol"]!==MINER_PROTOCOL)return json(res,426,{error:`Miner protocol mismatch; node requires ${MINER_PROTOCOL}`});const url=new URL(req.url,`${minerTls?"https":"http"}://${req.headers.host}`),raw=req.method==="POST"?await rawBody(req):"";if(minerVerifier)try{minerVerifier.verify(req.headers,{method:req.method,path:url.pathname,body:raw})}catch(error){return json(res,401,{error:error.message})}if(req.method==="GET"&&url.pathname==="/status")return json(res,200,nodeStatus());if(req.method==="POST"&&url.pathname==="/mine"){updateSync();if(sync.state!=="Idle")return json(res,409,{error:`Node is ${sync.state}; mining paused`});return json(res,201,await mineAndSave(JSON.parse(raw||"{}")))}return json(res,404,{error:"Not found"})}catch(error){if(res.headersSent)return res.end();json(res,400,{error:error.message})}};
+const minerServer=minerTls?createHttpsServer(minerTlsOptions,minerHandler):createServer(minerHandler);
 apiServer.on("error",error=>{console.error(`API server error: ${error.message}`);process.exitCode=1});minerServer.on("error",error=>{console.error(`Miner server error: ${error.message}`);process.exitCode=1});
 apiServer.listen(NETWORK.apiPort,()=>{console.log(`KOREK node ${NODE_VERSION} '${nodeName}'`);console.log(`Chain: ${chainName} · API/explorer: http://localhost:${NETWORK.apiPort}`);console.log(`Storage: ${dataDirectory} · restored height ${chain.chain.length-1}`);console.log(`Sync: ${sync.state} · peers: ${sync.peers} (${sync.note})`);if(nodeKey)console.log(`Node identity: ${nodeKey.peerId}`);if(p2p)console.log(`P2P ${NODE_PROTOCOL} listening on http://localhost:${p2pPort}`);if(rewardsAddress)console.log(`Configured rewards: ${rewardsAddress}`)});
-minerServer.listen(minerPort,()=>console.log(`Miner protocol ${MINER_PROTOCOL} listening on http://localhost:${minerPort}`));
+minerServer.listen(minerPort,minerHost,()=>console.log(`Miner protocol ${MINER_PROTOCOL} listening on ${minerTls?"https":"http"}://${minerHost}:${minerPort} · auth ${minerVerifier?"required":"loopback only"}`));
 if(miningEnabled)setInterval(async()=>{if(mining)return;updateSync();if(p2p&&peerSeeds.length&&sync.state!=="Idle")return;mining=true;try{const block=await mineAndSave({rewardsInnerHash});console.log(`Mined block #${block.height} · ${block.reward} atomic KRK · ${block.hash}`)}catch(error){console.error(`Mining error: ${error.message}`)}finally{mining=false}},NETWORK.rewardBlockTimeMs);

@@ -1,6 +1,6 @@
 # KOREK Network — Planck Testnet
 
-KOREK is an experimental blockchain research project connecting blockchain security with verifiable distributed AI computation. Planck v0.5 is a runnable testnet prototype, not production cryptocurrency software.
+KOREK is an experimental blockchain research project connecting blockchain security with verifiable distributed AI computation. Planck v0.6 is a runnable testnet prototype, not production cryptocurrency software.
 
 ## Run and mine
 
@@ -14,7 +14,7 @@ chmod +x scripts/setup-miner.sh
 
 The guided setup works on macOS, Linux, and WSL2. See [Mining and running a node](docs/MINING_AND_NODE.md) for manual commands, wormhole reward accounts, remote API mining, and troubleshooting.
 
-## Planck v0.5 features
+## Planck v0.6 features
 
 - Separate deterministic transparent and wormhole accounts derived from one KOREK 24-word recovery phrase
 - Mining rewards credited only to spendable wormhole addresses
@@ -23,6 +23,7 @@ The guided setup works on macOS, Linux, and WSL2. See [Mining and running a node
 - Persistent `node_key.p2p` identity generation and version-matched miner protocol on port `9833`
 - Checksummed atomic chain snapshots with verified restart recovery
 - Signed node identity handshake, peer discovery, health tracking and longer-chain synchronization
+- Versioned miner protocol with HMAC-SHA256 request authentication, replay protection, and optional TLS
 - Fixed maximum issuance of **365,000,000 KRK**
 - Signed transfers with millisecond local-testnet finality, gas and explorer details
 - Useful-work job registry connected to mining metadata
@@ -50,9 +51,11 @@ Faucet balances are test-only and excluded from fixed-supply issuance counters. 
 
 ## Important limitations
 
-Planck v0.5 provides signed testnet peer discovery and synchronization, but not production consensus, hostile-fork resistance, a production database, GPU compute proofs, authenticated miner ALPN, public telemetry, or public bootstrap nodes. Snapshot synchronization currently assumes honest compatible peers. CPU proof-of-work and AI-job verification are prototypes. The proposed 100 million TPS figure remains a research target, not current measured capability.
+Planck v0.6 provides signed testnet peer discovery and synchronization plus TLS/HMAC protection for remote miners, but not production consensus, hostile-fork resistance, a production database, GPU compute proofs, mutual TLS/ALPN, public telemetry, or public bootstrap nodes. Snapshot synchronization currently assumes honest compatible peers. CPU proof-of-work and AI-job verification are prototypes. The proposed 100 million TPS figure remains a research target, not current measured capability.
 
 See the [local P2P guide](docs/P2P_TESTNET.md) to run two synchronized nodes.
+
+See the [secure miner guide](docs/SECURE_MINER.md) before connecting a miner from another machine.
 
 Ed25519 is used only as a portable testnet bootstrap. Post-quantum work targets standardized ML-DSA with a hybrid migration period. The code has not been audited. Do not use it for real funds, investment, exchange listing, or production AI workloads.
 

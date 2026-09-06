@@ -1,6 +1,6 @@
 # Running a local KOREK P2P testnet
 
-Planck v0.5 can run multiple node processes that authenticate messages with their independent node keys, discover advertised peers, and synchronize to the longest reachable chain.
+Planck v0.6 can run multiple node processes that authenticate messages with their independent node keys, discover advertised peers, and synchronize to the longest reachable chain.
 
 > This is testnet synchronization, not production consensus. Only connect nodes you control. Full block-by-block state execution, cumulative-work fork choice, peer scoring, transport encryption and adversarial testing remain required before mainnet.
 

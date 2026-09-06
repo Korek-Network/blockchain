@@ -1,6 +1,6 @@
 {
   "name": "korek-blockchain",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "KOREK Planck testnet blockchain node, wormhole mining, faucet and explorer",

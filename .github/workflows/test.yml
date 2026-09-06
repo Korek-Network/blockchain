@@ -26,3 +26,5 @@ jobs:
       - run: node --check scripts/miner.mjs
       - run: node --check scripts/node-key.mjs
       - run: node --check src/protocol.js
+      - run: node --check src/miner-auth.js
+      - run: node --check src/p2p.js
