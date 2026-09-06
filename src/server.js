@@ -30,6 +30,7 @@ if(nodeKeyFile){nodeKey=JSON.parse(await readFile(nodeKeyFile,"utf8"));if(nodeKe
 const sourceRoot=fileURLToPath(new URL("../public/",import.meta.url)),binaryRoot=join(dirname(process.execPath),"public"),root=process.versions.bun&&existsSync(binaryRoot)?binaryRoot:sourceRoot;
 const dataDirectory=arg("data-dir")||process.env.KOREK_DATA_DIR||join(process.cwd(),".korek",chainName),stateStore=new StateStore(dataDirectory),savedState=await stateStore.load();
 let chain=savedState?KorekChain.fromSnapshot(savedState):new KorekChain();const jobs=new Map();
+const sealIntervalMs=Math.max(10,Number(process.env.KOREK_SEAL_INTERVAL_MS||200));let sealTimer=null;
 const sync={mode:syncMode,state:"Idle",peers:0,note:p2pRequested?"Signed Planck peer synchronization enabled":"P2P disabled; pass --node-key-file and --p2p-port"};
 const json=(res,status,value,cors=false)=>{res.writeHead(status,{"content-type":"application/json",...(cors?{"access-control-allow-origin":"*"}:{})});res.end(JSON.stringify(value,(_key,item)=>typeof item==="bigint"?item.toString():item))};
 const body=async req=>{const chunks=[];for await(const chunk of req)chunks.push(chunk);return JSON.parse(Buffer.concat(chunks)||"{}")};
@@ -40,6 +41,7 @@ const nodeStatus=()=>({...chain.status(),version:NODE_VERSION,chain:chainName,na
 const rewardAddress=input=>input.rewardsInnerHash?wormholeAddressFromInnerHash(input.rewardsInnerHash):input.address;
 const mineInput=input=>{const miner=rewardAddress(input),queued=[...jobs.values()].find(job=>job.status==="queued");if(queued){queued.status="verified-prototype";queued.miner=miner;queued.completedAt=Date.now()}return chain.mine(miner,queued?{type:"ai-job",jobId:queued.id,score:1}:{type:"security-pow",score:0})};
 const mineAndSave=async input=>{const block=mineInput(input);await stateStore.save(chain.snapshot());return block};
+const scheduleSeal=()=>{if(sealTimer)return;sealTimer=setTimeout(async()=>{sealTimer=null;try{const block=chain.sealPending();if(block)await stateStore.save(chain.snapshot())}catch(error){console.error(`Sealing error: ${error.message}`)}},sealIntervalMs)};
 
 if(p2pRequested){p2p=new P2PNetwork({identity:nodeKey,name:nodeName,port:p2pPort,advertiseUrl:p2pAdvertise,seeds:peerSeeds,maxPeers:64,getChain:()=>chain,onSnapshot:async(snapshot,peer)=>{const candidate=KorekChain.fromSnapshot(snapshot);if(candidate.chain.length<=chain.chain.length)return;chain=candidate;await stateStore.save(chain.snapshot());console.log(`Synced to block #${chain.chain.length-1} from ${peer.peerId.slice(0,12)} at ${peer.url}`)}});await p2p.start();updateSync();setInterval(updateSync,500).unref()}
 
@@ -51,8 +53,10 @@ const apiServer=createServer(async(req,res)=>{try{const url=new URL(req.url,`htt
  if(req.method==="GET"&&url.pathname.startsWith("/api/transaction/")){const tx=chain.transaction(url.pathname.split("/").at(-1));return tx?json(res,200,tx,true):json(res,404,{error:"Transaction not found"},true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/block/")){const block=chain.block(url.pathname.split("/").at(-1));return block?json(res,200,block,true):json(res,404,{error:"Block not found"},true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/balance/")){const address=url.pathname.split("/").at(-1);return json(res,200,{address,balance:chain.balance(address)},true)}
+ if(req.method==="GET"&&url.pathname.startsWith("/api/nonce/")){const address=url.pathname.split("/").at(-1);return json(res,200,{address,nextNonce:chain.nextNonce(address),networkId:NETWORK.networkId},true)}
  if(req.method==="POST"&&url.pathname==="/api/wallet"){const wallet=cryptoProvider.createWallet();res.setHeader("cache-control","no-store");return json(res,201,wallet,true)}
  if(req.method==="POST"&&url.pathname==="/api/transactions"){const tx=chain.addTransaction(await body(req));chain.sealPending();await stateStore.save(chain.snapshot());return json(res,201,chain.transaction(tx.id),true)}
+ if(req.method==="POST"&&url.pathname==="/api/transactions/batch"){const input=await body(req),accepted=await chain.addTransactionBatchParallel(input.transactions);scheduleSeal();return json(res,202,{accepted:accepted.length,parallelSignatureVerification:true,transactions:accepted},true)}
  if(req.method==="POST"&&url.pathname==="/api/faucet"){const input=await body(req),claim=chain.claimFaucet(input.address);await stateStore.save(chain.snapshot());return json(res,201,claim,true)}
  if(req.method==="POST"&&url.pathname==="/api/jobs"){const job={id:crypto.randomUUID(),status:"queued",createdAt:Date.now(),...(await body(req))};jobs.set(job.id,job);return json(res,201,job,true)}
  if(req.method==="GET"&&url.pathname==="/api/jobs")return json(res,200,[...jobs.values()],true);
