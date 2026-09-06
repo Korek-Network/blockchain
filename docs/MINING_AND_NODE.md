@@ -58,6 +58,70 @@ chmod +x scripts/setup-miner.sh
 
 The script validates Node.js, creates or restores the wormhole account, asks for its inner hash, and starts a local Planck node and miner. Leave the terminal open. Press `Ctrl+C` to stop.
 
+## Standalone node and miner binaries
+
+Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.3.0 package contains:
+
+- `korek-node` — Planck node, REST API, explorer, and miner-protocol server
+- `korek-miner` — separate miner client
+- `korek-node-key` — P2P node identity generator
+- `korek-key` — 24-word phrase and wormhole inner-hash generator
+- `public/` — explorer assets used by the node
+
+Windows executables use the `.exe` suffix.
+
+### 1. Generate the node identity
+
+```bash
+./korek-node-key node_key.p2p
+```
+
+The command creates `node_key.p2p` with private-file permissions and prints its peer ID. Never share or commit this file. It identifies the node and is completely separate from your wallet phrase.
+
+### 2. Generate or restore the wormhole account
+
+```bash
+./korek-key
+```
+
+Paste an existing KOREK 24-word phrase or press Enter to create one. Back up the words offline and copy the displayed inner hash. Wallet v0.2+ performs the same derivation.
+
+### 3. Start the node
+
+Replace `<YOUR_NODE_NAME>` and `<YOUR_INNER_HASH>` before running:
+
+```bash
+./korek-node \
+  --name <YOUR_NODE_NAME> \
+  --validator \
+  --miner-listen-port 9833 \
+  --chain planck \
+  --node-key-file node_key.p2p \
+  --rewards-inner-hash <YOUR_INNER_HASH> \
+  --max-blocks-per-request 64 \
+  --sync full
+```
+
+- `<YOUR_NODE_NAME>` can be any short descriptive name. It appears in node status and logs. KOREK does not yet operate a public telemetry website.
+- `<YOUR_INNER_HASH>` is the 64-character value from the wallet or `korek-key`.
+- Keep the extracted `public/` directory beside the node binary if you want the explorer at `http://127.0.0.1:8365`.
+
+### 4. Start the separate miner
+
+In another terminal, from the same extracted directory:
+
+```bash
+./korek-miner \
+  --node-url http://127.0.0.1:9833 \
+  --rewards-inner-hash <YOUR_INNER_HASH>
+```
+
+The node and miner must use the same `korek-planck-miner/1` protocol version. A mismatch is rejected with an upgrade-required error. This is currently an HTTP version handshake, not authenticated TLS/ALPN; authenticated transport is required before a public network launch.
+
+### Note on syncing
+
+Planck v0.3 accepts `--sync full` and exposes sync state in its status API, but the current state is always `Idle` in standalone mode because P2P discovery and chain synchronization are not implemented yet. It therefore cannot download a public chain tip, detect orphan blocks across peers, or pause based on peer count. Do not interpret `Idle` as proof of public-network consensus. Real peer syncing, fork choice, orphan handling, authenticated transport, and telemetry are upcoming protocol work.
+
 ## Manual setup
 
 ### 1. Download and test the node
@@ -105,15 +169,15 @@ Start the node without its built-in miner:
 npm start
 ```
 
-Then run a miner process on the same machine or another machine that can reach the node:
+Then run a miner process on the same machine or another machine that can reach the node's miner port:
 
 ```bash
 npm run mine:remote -- \
-  --node-url http://NODE_IP:8365 \
+  --node-url http://NODE_IP:9833 \
   --rewards-inner-hash YOUR_64_CHARACTER_INNER_HASH
 ```
 
-For a machine on your local network, replace `NODE_IP` with the node computer's LAN address and allow TCP port `8365` through its firewall. Do not expose this unauthenticated prototype API directly to the public internet.
+For a machine on your local network, replace `NODE_IP` with the node computer's LAN address and allow TCP port `9833` through its firewall. Do not expose this unauthenticated prototype protocol directly to the public internet.
 
 ### 5. Open the wallet
 

@@ -1,0 +1,66 @@
+name: Build Planck Node and Miner Binaries
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm test
+      - run: node --check src/server.js
+      - run: node --check scripts/miner.mjs
+      - run: node --check scripts/node-key.mjs
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { target: bun-linux-x64, platform: linux-x64, extension: "" }
+          - { target: bun-windows-x64, platform: windows-x64, extension: ".exe" }
+          - { target: bun-darwin-arm64, platform: mac-arm64, extension: "" }
+          - { target: bun-darwin-x64, platform: mac-x64, extension: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Compile executables
+        run: |
+          mkdir -p "dist/${{ matrix.platform }}/public"
+          bun build src/server.js --compile --target=${{ matrix.target }} --outfile="dist/${{ matrix.platform }}/korek-node${{ matrix.extension }}"
+          bun build scripts/miner.mjs --compile --target=${{ matrix.target }} --outfile="dist/${{ matrix.platform }}/korek-miner${{ matrix.extension }}"
+          bun build scripts/node-key.mjs --compile --target=${{ matrix.target }} --outfile="dist/${{ matrix.platform }}/korek-node-key${{ matrix.extension }}"
+          bun build scripts/key.mjs --compile --target=${{ matrix.target }} --outfile="dist/${{ matrix.platform }}/korek-key${{ matrix.extension }}"
+          cp public/* "dist/${{ matrix.platform }}/public/"
+          cp docs/MINING_AND_NODE.md "dist/${{ matrix.platform }}/README.md"
+      - name: Package Unix distribution
+        if: matrix.platform != 'windows-x64'
+        run: |
+          chmod +x dist/${{ matrix.platform }}/korek-*
+          tar -czf "korek-planck-0.3.0-${{ matrix.platform }}.tar.gz" -C "dist/${{ matrix.platform }}" .
+      - name: Package Windows distribution
+        if: matrix.platform == 'windows-x64'
+        run: cd "dist/${{ matrix.platform }}" && 7z a "../../korek-planck-0.3.0-${{ matrix.platform }}.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform }}
+          path: korek-planck-0.3.0-*
+          if-no-files-found: error
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: planck-testnet-latest
+          name: KOREK Planck Testnet Node and Miner v0.3.0
+          prerelease: true
+          make_latest: false
+          files: artifacts/korek-planck-0.3.0-*
