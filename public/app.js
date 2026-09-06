@@ -1,76 +1,22 @@
-const units = (n) => `${(Number(n) / 1e8).toLocaleString(undefined, { maximumFractionDigits: 8 })} KRK`;
-const elements = {
-  height: document.querySelector("#height"), issued: document.querySelector("#issued"),
-  crypto: document.querySelector("#crypto"), blocks: document.querySelector("#blocks"),
-  gpu: document.querySelector("#gpu"), address: document.querySelector("#address"),
-  mineButton: document.querySelector("#mineButton"), mineResult: document.querySelector("#mineResult"),
-  walletButton: document.querySelector("#walletButton"), walletResult: document.querySelector("#walletResult"),
-  faucetAddress: document.querySelector("#faucetAddress"), faucetButton: document.querySelector("#faucetButton"),
-  faucetResult: document.querySelector("#faucetResult"),
-  gasPrice: document.querySelector("#gasPrice"), transferGas: document.querySelector("#transferGas"),
-  transactionCount: document.querySelector("#transactionCount"), pendingCount: document.querySelector("#pendingCount"),
-  transactions: document.querySelector("#transactions"), scanQuery: document.querySelector("#scanQuery"),
-  scanButton: document.querySelector("#scanButton"), scanDetail: document.querySelector("#scanDetail"),
-};
-const short=(value)=>value&&value.length>20?`${value.slice(0,10)}…${value.slice(-8)}`:value;
-const time=(value)=>value?new Date(value).toLocaleString():"—";
-const escapeHtml=(value)=>String(value??"—").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
-
-async function request(path, options) {
-  const response = await fetch(path, options);
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
-  return result;
-}
-
-async function refresh() {
-  try {
-    const [status, blocks, transactions] = await Promise.all([request("/api/status"), request("/api/blocks"), request("/api/transactions")]);
-    elements.height.textContent=status.height; elements.issued.textContent=units(status.minedSupply); elements.crypto.textContent=units(status.initialReward);
-    elements.gasPrice.textContent=`${status.gasPrice} atomic`;elements.transferGas.textContent=Number(status.transferGas).toLocaleString();
-    elements.transactionCount.textContent=Number(status.transactions).toLocaleString();elements.pendingCount.textContent=status.pending;
-    elements.blocks.innerHTML=blocks.map(block=>`<button class="scan-row" data-block="${block.height}"><b>#${block.height}</b><span>${short(block.hash)}</span><span>${block.transactions.length} tx</span><time>${time(block.timestamp)}</time></button>`).join("");
-    elements.transactions.innerHTML=transactions.length?transactions.map(tx=>`<button class="scan-row tx-row" data-tx="${tx.id}"><b>${tx.status}</b><span>${short(tx.id)}</span><span>${units(tx.amount)}</span><time>${time(tx.confirmedAt||tx.receivedAt)}</time></button>`).join(""):'<p class="empty">No transactions yet.</p>';
-  } catch (error) {
-    elements.blocks.textContent = `Node unavailable: ${error.message}`;
-  }
-}
-
-function showDetail(title,fields){elements.scanDetail.hidden=false;elements.scanDetail.innerHTML=`<div class="detail-head"><h3>${escapeHtml(title)}</h3><button id="closeDetail">Close</button></div>${fields.map(([label,value])=>`<div class="detail-row"><span>${escapeHtml(label)}</span><code>${escapeHtml(value)}</code></div>`).join("")}`;document.querySelector("#closeDetail").onclick=()=>{elements.scanDetail.hidden=true};elements.scanDetail.scrollIntoView({behavior:"smooth",block:"center"})}
-async function showBlock(id){try{const block=await request(`/api/block/${encodeURIComponent(id)}`);showDetail(`Block #${block.height}`,[['Status','Confirmed'],['Block hash',block.hash],['Parent hash',block.previousHash],['Timestamp',time(block.timestamp)],['Confirmations',block.confirmations],['Miner',block.miner],['Transactions',block.transactions.length],['Gas used',block.gasUsed],['Transaction fees',units(block.fees)],['Block reward',units(block.reward)],['Nonce',block.nonce],['Size',`${block.sizeBytes} bytes`]])}catch(error){showDetail('Block not found',[['Error',error.message]])}}
-async function showTransaction(id){try{const tx=await request(`/api/transaction/${encodeURIComponent(id)}`);showDetail('Transaction details',[['Status',tx.status],['Transaction hash',tx.id],['Block',tx.blockHeight??'Pending'],['Confirmations',tx.confirmations],['From',tx.from],['To',tx.to],['Value',units(tx.amount)],['Gas price',`${tx.gasPrice} atomic units`],['Gas limit',Number(tx.gasLimit).toLocaleString()],['Gas used',Number(tx.gasUsed).toLocaleString()],['Network fee',units(tx.fee)],['Wallet send time',time(tx.sentAt)],['Node receive time',time(tx.receivedAt)],['Confirmation time',time(tx.confirmedAt)],['Time to confirm',tx.confirmationTimeMs===undefined||tx.confirmationTimeMs===null?'Pending':`${tx.confirmationTimeMs} ms`]]);return true}catch{return false}}
-elements.scanButton.addEventListener('click',async()=>{const query=elements.scanQuery.value.trim();if(!query)return;elements.scanButton.disabled=true;try{if(/^\d+$/.test(query))await showBlock(query);else if(!(await showTransaction(query)))await showBlock(query)}finally{elements.scanButton.disabled=false}});
-elements.scanQuery.addEventListener('keydown',event=>{if(event.key==='Enter')elements.scanButton.click()});
-elements.blocks.addEventListener('click',event=>{const row=event.target.closest('[data-block]');if(row)showBlock(row.dataset.block)});
-elements.transactions.addEventListener('click',event=>{const row=event.target.closest('[data-tx]');if(row)showTransaction(row.dataset.tx)});
-elements.gpu.textContent = navigator.gpu ? "WebGPU detected — Planck still uses CPU test proof" : "CPU test proof mode";
-elements.walletButton.addEventListener("click", async () => {
-  elements.walletButton.disabled=true; elements.walletResult.textContent="Creating wallet…";
-  try {
-    const wallet=await request("/api/wallet",{method:"POST"}); elements.faucetAddress.value=wallet.address;
-    const blobUrl=URL.createObjectURL(new Blob([JSON.stringify(wallet,null,2)],{type:"application/json"}));
-    const link=document.createElement("a"); link.href=blobUrl; link.download=`korek-wallet-${wallet.address.slice(-8)}.json`;
-    document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(blobUrl),1000);
-    elements.walletResult.textContent=`Wallet created\nAddress: ${wallet.address}\nPrivate test wallet downloaded. Keep it secret.`;
-  } catch(error) { elements.walletResult.textContent=`Wallet error: ${error.message}`; }
-  finally { elements.walletButton.disabled=false; }
-});
-elements.mineButton.addEventListener("click", async () => {
-  elements.mineButton.disabled=true; elements.mineResult.textContent="Mining…";
-  try {
-    const block=await request("/api/mine",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rewardsInnerHash:elements.address.value.trim()})});
-    elements.mineResult.textContent=`Block #${block.height}\n${block.hash}\nWormhole: ${block.miner}\nReward: ${units(block.reward)}`; await refresh();
-  } catch(error) { elements.mineResult.textContent=`Mining error: ${error.message}`; }
-  finally { elements.mineButton.disabled=false; }
-});
-elements.faucetButton.addEventListener("click", async () => {
-  elements.faucetButton.disabled=true; elements.faucetResult.textContent="Sending test KRK…";
-  try {
-    const claim=await request("/api/faucet",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({address:elements.faucetAddress.value.trim()})});
-    const next=new Date(claim.nextClaimAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
-    elements.faucetResult.textContent=`Success: 100 test KRK sent\nBalance: ${units(claim.balance)}\nNext claim available at ${next}`;
-    await refresh();
-  } catch(error) { elements.faucetResult.textContent=`Faucet error: ${error.message}`; }
-  finally { elements.faucetButton.disabled=false; }
-});
-refresh();setInterval(refresh,5000);
+const $=selector=>document.querySelector(selector);
+const ATOMIC=100_000_000;
+const state={status:null,blocks:[],transactions:[]};
+const esc=value=>String(value??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const short=(value,size=8)=>value&&value.length>size*2+2?`${value.slice(0,size)}…${value.slice(-size)}`:value;
+const krk=value=>`${(Number(value||0)/ATOMIC).toLocaleString(undefined,{maximumFractionDigits:8})} KRK`;
+const date=value=>value?new Date(Number(value)).toLocaleString():"—";
+const age=value=>{if(!value)return"—";const seconds=Math.max(0,Math.floor((Date.now()-Number(value))/1000));if(seconds<5)return"just now";if(seconds<60)return`${seconds}s ago`;if(seconds<3600)return`${Math.floor(seconds/60)}m ago`;if(seconds<86400)return`${Math.floor(seconds/3600)}h ago`;return`${Math.floor(seconds/86400)}d ago`};
+async function api(path){const response=await fetch(path);const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||`Request failed (${response.status})`);return data}
+function link(kind,value,label=short(value)){return`<a href="#/${kind}/${encodeURIComponent(value)}">${esc(label)}</a>`}
+function empty(message,cols=4){return`<tr><td class="empty" colspan="${cols}">${esc(message)}</td></tr>`}
+function setConnection(mode,label){$("#networkDot").className=mode;$("#networkName").textContent=label}
+function renderOverview(){const s=state.status,last=state.blocks[0];$("#height").textContent=Number(s.height).toLocaleString();$("#blockAge").textContent=last?age(last.timestamp):"Genesis";$("#txCount").textContent=Number(s.transactions).toLocaleString();$("#pending").textContent=`${Number(s.pending).toLocaleString()} pending`;$("#supply").textContent=krk(s.minedSupply);$("#fee").textContent=krk(BigInt(s.gasPrice)*BigInt(s.transferGas));$("#blocks").innerHTML=state.blocks.length?state.blocks.map(b=>`<tr class="clickable" data-route="block/${b.height}"><td><span class="primary">#${b.height}</span><span class="sub">${short(b.hash)}</span></td><td>${age(b.timestamp)}</td><td>${b.transactions.length}</td><td>${krk(b.reward)}</td></tr>`).join(""):empty("No blocks found");$("#transactions").innerHTML=state.transactions.length?state.transactions.map(t=>`<tr class="clickable" data-route="tx/${t.id}"><td><span class="primary">${short(t.id)}</span><span class="sub">${age(t.confirmedAt||t.receivedAt)}</span></td><td>${short(t.from,5)}<span class="sub">→ ${short(t.to,5)}</span></td><td>${krk(t.amount)}</td><td><span class="pill ${esc(t.status)}">${esc(t.status)}</span></td></tr>`).join(""):empty("No transactions yet")}
+async function refresh(){try{const [status,blocks,transactions]=await Promise.all([api("/api/status"),api("/api/blocks?limit=15"),api("/api/transactions")]);Object.assign(state,{status,blocks,transactions});const network=status.networkId||status.chain||"KOREK network";setConnection("online",network);$("#footerNetwork").textContent=`${network} · block ${status.height}`;renderOverview()}catch(error){setConnection("offline","Node offline");$("#blocks").innerHTML=empty(`Cannot connect to node: ${error.message}`);$("#transactions").innerHTML=empty("Waiting for node connection")}}
+function rows(items){return items.map(([label,value,raw=false])=>`<div class="detail-row"><span>${esc(label)}</span><code>${raw?value:esc(value)}</code></div>`).join("")}
+function showDetail(type,title,status,items){$("#overviewView").hidden=true;$("#detailView").hidden=false;$("#detailType").textContent=type;$("#detailTitle").textContent=title;$("#detailStatus").textContent=status;$("#detailStatus").className=`status ${status.toLowerCase()}`;$("#detailRows").innerHTML=rows(items);$("#nestedPanel").hidden=true;scrollTo({top:0,behavior:"smooth"})}
+async function blockDetail(id){const b=await api(`/api/block/${encodeURIComponent(id)}`);showDetail("BLOCK",`Block #${b.height}`,"Confirmed",[["Block hash",b.hash],["Parent hash",b.previousHash],["Timestamp",date(b.timestamp)],["Confirmations",Number(b.confirmations).toLocaleString()],["Miner",link("address",b.miner,b.miner),true],["Transactions",b.transactions.length],["Block reward",krk(b.reward)],["Fees",krk(b.fees)],["Gas used",Number(b.gasUsed).toLocaleString()],["Size",`${Number(b.sizeBytes).toLocaleString()} bytes`],["Nonce",Number(b.nonce).toLocaleString()]]);if(b.transactions.length){$("#nestedPanel").hidden=false;$("#nestedRows").innerHTML=b.transactions.map(t=>`<tr class="clickable" data-route="tx/${t.id}"><td class="primary">${short(t.id)}</td><td>${short(t.from)}</td><td>${short(t.to)}</td><td>${krk(t.amount)}</td></tr>`).join("")}}
+async function txDetail(id){const t=await api(`/api/transaction/${encodeURIComponent(id)}`);showDetail("TRANSACTION",short(t.id,12),t.status,[["Transaction hash",t.id],["Block",t.blockHeight==null?"Pending":link("block",t.blockHeight,`#${t.blockHeight}`),t.blockHeight!=null],["Confirmations",t.confirmations],["From",link("address",t.from,t.from),true],["To",link("address",t.to,t.to),true],["Value",krk(t.amount)],["Network fee",krk(t.fee)],["Gas price",`${t.gasPrice} atomic KRK`],["Gas limit",Number(t.gasLimit).toLocaleString()],["Gas used",Number(t.gasUsed).toLocaleString()],["Sent",date(t.sentAt)],["Received by node",date(t.receivedAt)],["Confirmed",date(t.confirmedAt)],["Time to confirm",t.confirmationTimeMs==null?"Pending":`${t.confirmationTimeMs} ms`]])}
+async function addressDetail(address){const result=await api(`/api/balance/${encodeURIComponent(address)}`);const txs=state.transactions.filter(t=>t.from===address||t.to===address);showDetail("ADDRESS",short(address,12),"Active",[["Address",address],["Balance",krk(result.balance)],["Recent transactions",txs.length]]);if(txs.length){$("#nestedPanel").hidden=false;$("#nestedPanel h2").textContent="Recent address activity";$("#nestedRows").innerHTML=txs.map(t=>`<tr class="clickable" data-route="tx/${t.id}"><td class="primary">${short(t.id)}</td><td>${short(t.from)}</td><td>${short(t.to)}</td><td>${krk(t.amount)}</td></tr>`).join("")}}
+async function route(){const [kind,...parts]=location.hash.replace(/^#\/?/,"").split("/");const id=decodeURIComponent(parts.join("/"));$("#searchError").textContent="";if(!kind){$("#detailView").hidden=true;$("#overviewView").hidden=false;return}try{if(kind==="block")await blockDetail(id);else if(kind==="tx")await txDetail(id);else if(kind==="address")await addressDetail(id);else throw new Error("Unknown explorer route")}catch(error){$("#searchError").textContent=error.message;location.hash="#/"}}
+async function search(query){if(/^krk1[0-9a-f]{40}$/i.test(query)){location.hash=`#/address/${query}`;return}if(/^\d+$/.test(query)){location.hash=`#/block/${query}`;return}try{await api(`/api/transaction/${encodeURIComponent(query)}`);location.hash=`#/tx/${query}`}catch{try{await api(`/api/block/${encodeURIComponent(query)}`);location.hash=`#/block/${query}`}catch{$("#searchError").textContent="No matching block, transaction or address was found."}}}
+$("#searchForm").addEventListener("submit",event=>{event.preventDefault();const query=$("#searchInput").value.trim();if(query)search(query)});$("#backButton").addEventListener("click",()=>location.hash="#/");document.addEventListener("click",event=>{const row=event.target.closest("[data-route]");if(row)location.hash=`#/${row.dataset.route}`});addEventListener("hashchange",route);await refresh();await route();setInterval(refresh,5000);
