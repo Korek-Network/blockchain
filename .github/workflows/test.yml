@@ -20,6 +20,7 @@ jobs:
           node-version: 22
       - run: npm test
       - run: node --check src/server.js
+      - run: node --check src/storage.js
       - run: node --check public/app.js
       - run: node --check scripts/key.mjs
       - run: node --check scripts/miner.mjs

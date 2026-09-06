@@ -2,7 +2,7 @@
 
 This guide covers creating a KOREK wormhole reward account, running a Planck testnet node, and mining test KRK on macOS, Linux, and Windows through WSL2.
 
-> Planck v0.2 is experimental testnet software. Its ledger is currently held in memory, there is no production peer-to-peer discovery layer, and restarting a node resets its local chain. Mining is a CPU proof-of-work prototype; GPU/AI useful-work verification is not yet active. Test KRK has no monetary value.
+> Planck v0.4 is experimental testnet software. It persists a verified local chain snapshot, but there is no production peer-to-peer discovery or consensus layer. Mining is a CPU proof-of-work prototype; GPU/AI useful-work verification is not yet active. Test KRK has no monetary value.
 
 ## Prerequisites
 
@@ -60,7 +60,7 @@ The script validates Node.js, creates or restores the wormhole account, asks for
 
 ## Standalone node and miner binaries
 
-Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.3.0 package contains:
+Download the archive for your operating system from [Planck node and miner releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), then extract it. Each matching v0.4.0 package contains:
 
 - `korek-node` — Planck node, REST API, explorer, and miner-protocol server
 - `korek-miner` — separate miner client
@@ -212,4 +212,4 @@ Rapid transaction-finality blocks do not mint KRK and do not advance the mining 
 - **Invalid inner hash:** copy all 64 hexadecimal characters with no `0x` prefix.
 - **Port already in use:** stop the earlier node, or set another port: `KOREK_PORT=8366 npm start`.
 - **Wallet says Offline:** confirm the node is running and enter the correct reachable URL in the wallet.
-- **Balance disappears after restart:** Planck v0.2 storage is in memory; persistence and peer synchronization are future milestones.
+- **State fails to load:** preserve the data directory and its `chain-state.json` for recovery; the node refuses snapshots with an invalid checksum or block linkage. P2P recovery is not implemented yet.
