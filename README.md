@@ -1,36 +1,35 @@
-# KOREK Network (KRK)
+# KOREK Network — Planck Testnet
 
-KOREK is an experimental blockchain research project connecting blockchain security with verifiable, distributed AI computation. This repository is the first runnable **testnet prototype**, not production cryptocurrency software.
+KOREK is an experimental blockchain research project connecting blockchain security with verifiable distributed AI computation. Planck v0.2 is a runnable testnet prototype, not production cryptocurrency software.
 
-## Current prototype
-
-- KRK native ledger with a hard-coded maximum issuance of **365,000,000 KRK**
-- Deterministic genesis block, signed transfers, balances and proof-of-work blocks
-- Useful-work job registry connected to mining metadata
-- Local REST API, block explorer, test wallet generator and one-click test miner
-- Replaceable cryptography boundary for a future post-quantum provider
-- No runtime dependencies beyond Node.js 22+
-
-## Run it
+## Run and mine
 
 ```bash
+git clone https://github.com/Korek-Network/blockchain.git
+cd blockchain
 npm test
-npm start
+chmod +x scripts/setup-miner.sh
+./scripts/setup-miner.sh
 ```
 
-Open `http://localhost:8365`. Download the standalone desktop wallet from [Korek-Network/wallet](https://github.com/Korek-Network/wallet).
+The guided setup works on macOS, Linux, and WSL2. See [Mining and running a node](docs/MINING_AND_NODE.md) for manual commands, wormhole reward accounts, remote API mining, and troubleshooting.
 
-For complete beginner-friendly instructions, see the [KOREK Testnet Guide](docs/TESTNET_GUIDE.md).
+## Planck v0.2 features
 
-## Desktop wallet
-
-The encrypted Windows and Linux desktop wallet is maintained separately at [Korek-Network/wallet](https://github.com/Korek-Network/wallet).
+- Separate deterministic transparent and wormhole accounts derived from one KOREK 24-word recovery phrase
+- Mining rewards credited only to spendable wormhole addresses
+- Built-in node miner and separate API-connected miner
+- Fixed maximum issuance of **365,000,000 KRK**
+- Signed transfers with millisecond local-testnet finality, gas and explorer details
+- Useful-work job registry connected to mining metadata
+- Faucet, block explorer, and REST API on port `8365`
+- Windows, Linux, and macOS desktop wallet at [Korek-Network/wallet](https://github.com/Korek-Network/wallet)
 
 ## Network parameters
 
-| Parameter | Testnet value |
+| Parameter | Planck testnet value |
 |---|---:|
-| Network ID | `korek-testnet-1` |
+| Network ID | `korek-planck-testnet-1` |
 | Symbol | `KRK` |
 | Decimals | 8 |
 | Maximum supply | 365,000,000 KRK |
@@ -39,20 +38,16 @@ The encrypted Windows and Linux desktop wallet is maintained separately at [Kore
 | Development allocation | 18,250,000 KRK (5%) |
 | Security/community allocation | 18,250,000 KRK (5%) |
 | Initial reward | 1.15740740 KRK |
+| Reward interval | 1 second target |
 | Reward halving | Every 126,144,000 reward blocks (~4 years) |
-| Target reward-block interval | 1 second |
-| Default API/mining port | 8365 |
+| API/mining port | 8365 |
 
-Testnet faucet balances are deliberately excluded from the fixed mainnet allocation counters.
+Faucet balances are test-only and excluded from fixed-supply issuance counters. Rapid transaction-finality blocks do not mint a reward or move the halving counter.
 
-## Architecture direction
+## Important limitations
 
-The intended system separates consensus, execution, useful-compute verification, storage, networking and cryptography. AI jobs must eventually use redundant execution, challenge sampling, staking/slashing and deterministic workload profiles. Post-quantum wallet work targets standardized ML-DSA signatures with a hybrid migration period. Neither feature is implemented securely in v0.1.
+Planck currently stores state in memory and does not yet implement durable storage, peer-to-peer consensus, GPU compute proofs, or a public bootstrap network. CPU proof-of-work and AI-job verification are prototypes. The proposed 100 million TPS figure remains a research target, not current measured capability.
 
-The proposed 100 million transactions-per-second figure is a research target, not a present capability claim. It would require parallel execution, sharding or rollup-style batching and independently reproducible benchmarks.
+Ed25519 is used only as a portable testnet bootstrap. Post-quantum work targets standardized ML-DSA with a hybrid migration period. The code has not been audited. Do not use it for real funds, investment, exchange listing, or production AI workloads.
 
-## Security warning
-
-This code uses Ed25519 only as a portable testnet bootstrap and stores generated test keys in plaintext JSON. It has not been audited. Do not use it for real funds, public investment, exchange listing, or production AI workloads.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [SECURITY.md](SECURITY.md).
+See [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), and [security policy](SECURITY.md).

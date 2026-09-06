@@ -1,19 +1,19 @@
 {
   "name": "korek-blockchain",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "KOREK testnet blockchain node, mining, faucet and explorer",
+  "description": "KOREK Planck testnet blockchain node, wormhole mining, faucet and explorer",
   "scripts": {
     "start": "node src/server.js",
+    "node": "node src/server.js",
+    "mine": "node src/server.js --mine",
+    "mine:remote": "node scripts/miner.mjs",
+    "key": "node scripts/key.mjs --scheme wormhole",
     "test": "node --test"
   },
-  "engines": {
-    "node": ">=22"
-  },
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Korek-Network/blockchain.git"
-  }
+  "engines": { "node": ">=22" },
+  "repository": { "type": "git", "url": "git+https://github.com/Korek-Network/blockchain.git" },
+  "homepage": "https://github.com/Korek-Network/blockchain",
+  "license": "Apache-2.0"
 }

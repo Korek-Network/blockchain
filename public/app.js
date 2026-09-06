@@ -43,11 +43,11 @@ elements.scanButton.addEventListener('click',async()=>{const query=elements.scan
 elements.scanQuery.addEventListener('keydown',event=>{if(event.key==='Enter')elements.scanButton.click()});
 elements.blocks.addEventListener('click',event=>{const row=event.target.closest('[data-block]');if(row)showBlock(row.dataset.block)});
 elements.transactions.addEventListener('click',event=>{const row=event.target.closest('[data-tx]');if(row)showTransaction(row.dataset.tx)});
-elements.gpu.textContent = navigator.gpu ? "WebGPU detected — compatible GPU browser" : "WebGPU unavailable — CPU test mode";
+elements.gpu.textContent = navigator.gpu ? "WebGPU detected — Planck still uses CPU test proof" : "CPU test proof mode";
 elements.walletButton.addEventListener("click", async () => {
   elements.walletButton.disabled=true; elements.walletResult.textContent="Creating wallet…";
   try {
-    const wallet=await request("/api/wallet",{method:"POST"}); elements.address.value=wallet.address; elements.faucetAddress.value=wallet.address;
+    const wallet=await request("/api/wallet",{method:"POST"}); elements.faucetAddress.value=wallet.address;
     const blobUrl=URL.createObjectURL(new Blob([JSON.stringify(wallet,null,2)],{type:"application/json"}));
     const link=document.createElement("a"); link.href=blobUrl; link.download=`korek-wallet-${wallet.address.slice(-8)}.json`;
     document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(blobUrl),1000);
@@ -58,8 +58,8 @@ elements.walletButton.addEventListener("click", async () => {
 elements.mineButton.addEventListener("click", async () => {
   elements.mineButton.disabled=true; elements.mineResult.textContent="Mining…";
   try {
-    const block=await request("/api/mine",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({address:elements.address.value.trim()})});
-    elements.mineResult.textContent=`Block #${block.height}\n${block.hash}\nReward: ${units(block.reward)}`; await refresh();
+    const block=await request("/api/mine",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rewardsInnerHash:elements.address.value.trim()})});
+    elements.mineResult.textContent=`Block #${block.height}\n${block.hash}\nWormhole: ${block.miner}\nReward: ${units(block.reward)}`; await refresh();
   } catch(error) { elements.mineResult.textContent=`Mining error: ${error.message}`; }
   finally { elements.mineButton.disabled=false; }
 });
