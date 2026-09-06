@@ -1,0 +1,19 @@
+{
+  "name": "korek-network",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "KOREK testnet blockchain node, mining, faucet and explorer",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Korek-Network/blockchain.git"
+  }
+}
