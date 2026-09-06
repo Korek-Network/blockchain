@@ -49,14 +49,14 @@ jobs:
         if: matrix.platform != 'windows-x64'
         run: |
           chmod +x dist/${{ matrix.platform }}/korek-*
-          tar -czf "korek-planck-0.7.0-${{ matrix.platform }}.tar.gz" -C "dist/${{ matrix.platform }}" .
+          tar -czf "korek-planck-0.7.1-${{ matrix.platform }}.tar.gz" -C "dist/${{ matrix.platform }}" .
       - name: Package Windows distribution
         if: matrix.platform == 'windows-x64'
-        run: cd "dist/${{ matrix.platform }}" && 7z a "../../korek-planck-0.7.0-${{ matrix.platform }}.zip" .
+        run: cd "dist/${{ matrix.platform }}" && 7z a "../../korek-planck-0.7.1-${{ matrix.platform }}.zip" .
       - uses: actions/upload-artifact@v4
         with:
           name: binaries-${{ matrix.platform }}
-          path: korek-planck-0.7.0-*
+          path: korek-planck-0.7.1-*
           if-no-files-found: error
 
   release:
@@ -69,7 +69,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: planck-testnet-latest
-          name: KOREK Planck Testnet Node v0.7.0
+          name: KOREK Planck Testnet Node v0.7.1
           prerelease: true
           make_latest: false
-          files: artifacts/korek-planck-0.7.0-*
+          files: artifacts/korek-planck-0.7.1-*
