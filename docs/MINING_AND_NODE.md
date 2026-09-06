@@ -4,6 +4,8 @@
 
 Mining Protocol v3 performs proof-of-work on the miner computer. The node issues a short-lived work template, the miner searches nonces locally with selected CPU threads and optional experimental WebGPU, and the node verifies the signed proof before crediting a reward.
 
+Planck tests the proposed economics before they are frozen for mainnet: 210 million KRK maximum supply, zero genesis premine, 60-second reward blocks, 50 KRK initial subsidy, a 2,100,000-block halving interval, 95% of subsidy to the successful miner, 5% to the public treasury, and 100% of transaction fees to the next successful miner. Testnet faucet balances are outside the mining supply and never migrate to mainnet.
+
 ## Node
 
 Download the matching v0.7 node archive from [Planck releases](https://github.com/Korek-Network/blockchain/releases/tag/planck-testnet-latest), or clone this repository and use Node.js 22+.
@@ -55,6 +57,8 @@ The dashboard reports hashes actually attempted by local workers. NVIDIA utiliza
 
 A node rewards only a proof that passes wallet ownership, signature, timestamp, replay, template, chain-tip, nonce-range, hash, target, and duplicate checks. Accepted rewards are immediately spendable from the wormhole account; there is no separate claim transaction.
 
+Transaction fees confirmed by rapid testnet-finality blocks accumulate in the consensus fee pool and are paid in full with the next accepted proof. The temporary Planck treasury sink is `krk1d1ee0261919684cf511b9bd702697b5c4816c61e`; mainnet requires a separately generated, publicly documented multisignature treasury.
+
 ## Protocol compatibility
 
 The node and desktop miner must both report `korek-planck-miner/3`. See [Miner Protocol v3](MINER_PROTOCOL_V3.md) and the canonical [reference package and vectors](https://github.com/Korek-Network/template).
@@ -62,4 +66,3 @@ The node and desktop miner must both report `korek-planck-miner/3`. See [Miner P
 ## Mainnet gate
 
 Before mainnet, KOREK still requires an independent consensus/security audit, difficulty-adjustment and fork-choice review, protocol fuzzing, denial-of-service load testing, cross-vendor GPU kernel validation, reproducible signed binaries, and an extended public adversarial testnet.
-
