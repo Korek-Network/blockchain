@@ -25,7 +25,9 @@ export const meetsDifficulty=(hash,difficulty)=>{
 export const workChallenge=template=>sha256(JSON.stringify({
  protocol:MINER_PROTOCOL_V3,networkId:template.networkId,templateId:template.templateId,
  height:template.height,previousHash:template.previousHash,rewardAddress:template.rewardAddress,
- reward:template.reward,difficulty:template.difficulty,issuedAt:template.issuedAt,notBefore:template.notBefore,expiresAt:template.expiresAt
+ reward:template.reward,minerReward:template.minerReward,treasuryReward:template.treasuryReward,
+ treasuryAddress:template.treasuryAddress,feePayout:template.feePayout,difficulty:template.difficulty,
+ issuedAt:template.issuedAt,notBefore:template.notBefore,expiresAt:template.expiresAt
 }));
 export function verifyWalletIdentity({address,publicKey}){
  if(addressFromPublicKey(publicKey,"wormhole-v1")!==address)throw new Error("Mining public key does not own the reward address");
@@ -50,8 +52,8 @@ export function verifySubmission(input,template,now=Date.now()){
  if(!cryptoProvider.verify(miningSubmissionMessage(input),input.signature,input.publicKey))throw new Error("Invalid mining submission signature");
  return expected;
 }
-export function createTemplate({networkId,height,previousHash,rewardAddress,publicKey,reward,difficulty,now=Date.now(),notBefore=now}){
- const template={protocol:MINER_PROTOCOL_V3,networkId,templateId:randomUUID(),height,previousHash,rewardAddress,publicKey,reward,difficulty,issuedAt:now,notBefore,expiresAt:Math.max(now+WORK_TTL_MS,notBefore+WORK_TTL_MS),nonceStart:0,nonceEnd:MAX_NONCE};
+export function createTemplate({networkId,height,previousHash,rewardAddress,publicKey,reward,minerReward,rewardMiner,treasuryReward,treasuryAddress,feePayout,difficulty,now=Date.now(),notBefore=now}){
+ const template={protocol:MINER_PROTOCOL_V3,networkId,templateId:randomUUID(),height,previousHash,rewardAddress,publicKey,reward,minerReward:minerReward??rewardMiner??reward,treasuryReward:treasuryReward??"0",treasuryAddress:treasuryAddress??null,feePayout:feePayout??"0",difficulty,issuedAt:now,notBefore,expiresAt:Math.max(now+WORK_TTL_MS,notBefore+WORK_TTL_MS),nonceStart:0,nonceEnd:MAX_NONCE};
  return{...template,challenge:workChallenge(template)};
 }
 export const randomRequestNonce=()=>randomBytes(16).toString("hex");
