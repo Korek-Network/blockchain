@@ -2,6 +2,11 @@
 
 KOREK is an experimental proof-of-work blockchain research project connecting network security with verifiable distributed computation. Planck v0.7.1 is a public testnet, not production cryptocurrency software. Test KRK has no monetary value and will not migrate to mainnet.
 
+This experimental branch changes confirmation reporting and peer synchronization to
+`korek-planck-p2p/2`. It is not deployed and must not be mixed with version-1 peers.
+See [confirmation and synchronization changes](docs/CONFIRMATION_AND_SYNC.md) for
+the compatibility warning, local test results and remaining security limitations.
+
 ## Start mining
 
 Most testers do not need to run a node.
@@ -20,10 +25,10 @@ See [Mining and running a node](docs/MINING_AND_NODE.md) for complete instructio
 - Selectable CPU workers and experimental WebGPU SHA-256
 - Rewards credited directly to spendable wormhole accounts
 - Persistent node storage and signed node identities
-- Signed P2P discovery and longer-chain testnet synchronization
+- Signed P2P discovery, stronger-work fork choice and exact same-chain extensions
 - Public explorer, mining gateway and REST API
 - Windows, Linux and macOS miner, wallet and node packages
-- Rapid testnet transfer finality with fees pooled for the next successful miner
+- Rapid local transfer inclusion, with fees pooled for the next successful miner; no guaranteed finality
 
 ## Monetary policy under test
 

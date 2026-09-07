@@ -13,8 +13,8 @@ import { miningRequestMessage, miningSubmissionMessage, powDigest, meetsDifficul
 import { wallet, transfer, commonPlacement, phaseMetrics } from "./metrics.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url)), repository = join(root, "../..");
-const smoke = process.argv.includes("--smoke");
-if (process.argv.slice(2).some(x => x !== "--smoke")) throw new Error("Only --smoke is supported; no external endpoint mode");
+const smoke = process.argv.includes("--smoke"), fixed = process.argv.includes("--fixed");
+if (process.argv.slice(2).some(x => !["--smoke", "--fixed"].includes(x))) throw new Error("Only --smoke and --fixed are supported; no external endpoint mode");
 const profile = { durationMs: smoke ? 1000 : 6000, offeredRates: smoke ? [10, 25] : [10, 50, 100],
   maxInFlight: 16, observerIntervalMs: 200, replicationTimeoutMs: 20000, peerSyncIntervalMs: 2000,
   difficulty: 3, rewardBlockTimeMs: 250, failureBatchSize: smoke ? 4 : 24 };
@@ -22,8 +22,10 @@ const profile = { durationMs: smoke ? 1000 : 6000, offeredRates: smoke ? [10, 25
 // configuration as its children. Dynamic imports avoid capturing default 7 first.
 process.env.KOREK_DIFFICULTY = String(profile.difficulty);
 process.env.KOREK_BLOCK_TIME_MS = String(profile.rewardBlockTimeMs);
-const { KorekChain } = await import("../../src/blockchain.js");
+const { KorekChain, hashBlock } = await import("../../src/blockchain.js");
 const { verifyEnvelope } = await import("../../src/p2p.js");
+const { NODE_PROTOCOL } = await import("../../src/protocol.js");
+assert.equal(NODE_PROTOCOL, fixed ? "korek-planck-p2p/2" : "korek-planck-p2p/1", "On the patched P2P v2 branch use --fixed; legacy expectations belong to the baseline branch");
 await mkdir(join(root, ".runs"), { recursive: true });
 const directory = await mkdtemp(join(root, ".runs", "run-"));
 const origin = performance.now(), clock = () => performance.now()-origin;
@@ -39,7 +41,7 @@ const sender = wallet(), recipient = wallet(), miner = wallet();
 let sequence = 0, controlId = 0;
 const timestampBase = Date.now();
 const sha = data => createHash("sha256").update(data).digest("hex");
-const report = { version: "korek-local-multinode-benchmark/1", runAt: new Date().toISOString(), profile,
+const report = { version: fixed ? "korek-local-multinode-benchmark/2" : "korek-local-multinode-benchmark/1", runAt: new Date().toISOString(), profile,
   environment: { node: process.version, platform: platform(), arch: arch(), cpu: cpus()[0]?.model, logicalCpus: cpus().length },
   sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim(),
   sourceSha256: {}, scope: { realServerProcesses: 3, transport: "loopback HTTP, same host", signedTransactions: true,
@@ -48,8 +50,8 @@ const report = { version: "korek-local-multinode-benchmark/1", runAt: new Date()
     labOverrides: "difficulty 3 and reward interval 250ms versus source defaults 7 and 60000ms; default 2000ms P2P polling retained",
     instrumentation: "method timings, loopback-only listener shim, IPC peer configuration; production handlers and fork choice unchanged",
     persistence: "existing whole-snapshot write/rename; no fsync or power-loss durability guarantee",
-    finalityClaim: false, publicTestnetCapacityClaim: false }, phases, events };
-for (const file of ["server.js", "blockchain.js", "p2p.js", "storage.js", "config.js", "crypto.js", "mining-protocol.js"]) {
+    finalityClaim: false, publicTestnetCapacityClaim: false, nodeProtocol: NODE_PROTOCOL, fixedSemantics: fixed }, phases, events };
+for (const file of ["server.js", "blockchain.js", "p2p.js", "storage.js", "config.js", "crypto.js", "mining-protocol.js", "protocol.js", ...(fixed ? ["confirmation.js", "chain-selection.js"] : [])]) {
   report.sourceSha256[file] = sha(await readFile(join(repository, "src", file)));
 }
 report.benchmarkSourceSha256 = {};
@@ -266,30 +268,59 @@ try {
   const forkInputs = inputs(3).values;
   const left = await submit(a, forkInputs[0]), right = await submit(b, forkInputs[1]);
   assert.equal(left.httpStatus, 201); assert.equal(right.httpStatus, 201);
+  if (fixed) { assert.equal(left.reportedStatus, "included"); assert.equal(right.reportedStatus, "included"); }
   await wire(nodes); await delay(profile.peerSyncIntervalMs*2+300);
   const equalTips = await Promise.all(nodes.map(n => ok(n, "/api/blocks?limit=1")));
   assert.notEqual(equalTips[0][0].hash, equalTips[1][0].hash, "Expected source equal-work/equal-height fork retention changed");
   const extension = await submit(a, forkInputs[2]); assert.equal(extension.httpStatus, 201);
+  let firstAnchor;
+  if (fixed) {
+    await delay(profile.peerSyncIntervalMs*2+300); await observe(b);
+    assert.equal(b.view.has(right.id), true, "A longer equal-work fork must not replace B's history");
+    assert.equal(b.view.has(left.id), false);
+    firstAnchor = await mineAnchor(a); // A genuine stronger-work fork may still reorganize tentative transfers.
+  }
   assert.equal(await waitReplicated([left, extension]), true);
   assert.equal(nodes.every(n => !n.view.has(right.id)), true);
   report.partitionProbe = { controlledPeerDisconnection: true, equalHeightForkDidNotConverge: true,
     waitAfterReconnectMs: profile.peerSyncIntervalMs*2+300,
     acknowledgedTransactionLostFromAllNodes: right.id, lostApiReportedStatus: right.reportedStatus,
-    convergedAfterSourceExtension: true, meaning: "A locally confirmed transfer can be removed by a later selected branch" };
+    longerEqualWorkForkRejected: fixed, convergedAfterSourceExtension: !fixed, convergedAfterStrongerWork: fixed,
+    meaning: fixed ? "Tentative inclusion is not finality; only stronger verified work resolved the conflicting branches" : "A locally confirmed transfer can be removed by a later selected branch" };
 
-  const firstAnchor = await mineAnchor(a); assert.equal(await waitTip(firstAnchor.hash), true);
+  firstAnchor ??= await mineAnchor(a); assert.equal(await waitTip(firstAnchor.hash), true);
   const gatedInputs = inputs(profile.failureBatchSize).values, gated = [];
   for (const input of gatedInputs) gated.push(await submit(a, input));
   assert.equal(gated.every(r => r.httpStatus === 201), true);
-  await delay(profile.peerSyncIntervalMs*2+300); await Promise.all(nodes.map(observe));
+  const gateStarted = clock();
+  if (fixed) assert.equal(await waitReplicated(gated, nodes, profile.peerSyncIntervalMs*2+300), true);
+  else { await delay(profile.peerSyncIntervalMs*2+300); await Promise.all(nodes.map(observe)); }
   const beforeAnchorCount = gated.filter(r => commonPlacement(r.id, nodes.map(n => n.view))).length;
-  assert.equal(beforeAnchorCount, 0, "Expected equal-positive-work propagation gate changed");
+  assert.equal(beforeAnchorCount, fixed ? gated.length : 0, "Post-mining propagation expectation failed");
+  if (fixed) for (const node of nodes) {
+    const tx = await ok(node, `/api/transaction/${gated[0].id}`);
+    assert.equal(tx.status, "included"); assert.equal(tx.powConfirmations, 0); assert.equal(tx.finalized, false);
+  }
+  const gateObservedMs = clock()-gateStarted;
   const secondAnchor = await mineAnchor(a);
   assert.equal(await waitReplicated(gated), true);
   assert.equal(await waitTip(secondAnchor.hash), true);
   report.positiveWorkGate = { firstAnchor, secondAnchor, accepted: gated.length, replicatedBeforeNewWork: beforeAnchorCount,
     observationWindowBeforeNewWorkMs: profile.peerSyncIntervalMs*2+300, replicatedAfterNewWork: gated.length,
-    explanation: "Equal positive cumulative work does not trigger sync for new zero-work transfer blocks" };
+    timeToObservedReplicationBeforeNewWorkMs: fixed ? gateObservedMs : null,
+    explanation: fixed ? "Exact extensions propagate at equal positive work, before a further mining block exists" : "Equal positive cumulative work does not trigger sync for new zero-work transfer blocks" };
+  if (fixed) {
+    for (const node of nodes) {
+      const tx = await ok(node, `/api/transaction/${gated[0].id}`);
+      assert.equal(tx.status, "anchored"); assert.equal(tx.powConfirmations, 1); assert.equal(tx.finalized, false);
+      assert.equal(tx.finalityTimeMs, null);
+      const block = await ok(node, `/api/block/${tx.blockHeight}`);
+      const raw = await ok(node, block.canonicalPath);
+      assert.equal(hashBlock(raw), raw.hash); assert.equal(raw.transactions[0].status, "confirmed");
+      assert.equal(block.transactions[0].status, "anchored");
+    }
+    report.publicStatusChecks = { inclusionNotFinality: true, proofAnchoringNotFinality: true, canonicalBlockHashPreserved: true };
+  }
 
   await collectMetrics("final");
   const states = await Promise.all(nodes.map(snapshot));

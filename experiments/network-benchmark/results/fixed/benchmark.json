@@ -1,0 +1,1054 @@
+{
+  "version": "korek-local-multinode-benchmark/2",
+  "runAt": "2026-09-07T13:26:52.853Z",
+  "profile": {
+    "durationMs": 6000,
+    "offeredRates": [
+      10,
+      50,
+      100
+    ],
+    "maxInFlight": 16,
+    "observerIntervalMs": 200,
+    "replicationTimeoutMs": 20000,
+    "peerSyncIntervalMs": 2000,
+    "difficulty": 3,
+    "rewardBlockTimeMs": 250,
+    "failureBatchSize": 24
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 9
+  },
+  "sourceCommit": "aad233179a5977d164572588636cf501906d2aca",
+  "sourceSha256": {
+    "server.js": "7541a4c6c42f4830116774ec4099f804834ccb39a5e8f7b841924f0ef9b6a614",
+    "blockchain.js": "cb4dc751011bc0fd39eb766de34b4cc51d4d5edd2bf04914695b8735196c12c5",
+    "p2p.js": "45e440f7be234b71e060cfacd139a0a6f88cb98fe5d9f881e23e1988345b2594",
+    "storage.js": "9724a20510c3fe88d845a1455569bd0be8f9a83830f3ab4da81b1e80a1d12c4d",
+    "config.js": "c7908399f28832835fcf9ae017bc80499471b10dccbae0f27a8eb242cd5b72d3",
+    "crypto.js": "a5b8b3cc9f7a74aa9551cc049ed3a950ea2dc5965b41e11a7473a7fe8bf9f6a5",
+    "mining-protocol.js": "4de10acf429072711962c5832e6909bec7f6bf7c94d1d0acaed3700c59663ff6",
+    "protocol.js": "af30c618d1be6eb5f5ae41b7c3d1fcfaccd9a729eba99eb69b9e5499e99c03e1",
+    "confirmation.js": "56f1b46b74332f24c883a3c82e7779841cb6616314c9b9d40ec6d53e6fc145fe",
+    "chain-selection.js": "ee614df10f9be527d54295e9b423a3fd883ccbbb65c058274c931026df48c1f0"
+  },
+  "scope": {
+    "realServerProcesses": 3,
+    "transport": "loopback HTTP, same host",
+    "signedTransactions": true,
+    "signature": "Ed25519, version 3 wormhole-v1 address scheme",
+    "ingress": "one funded sender, one recipient, fixed fee, sequentially scheduled requests",
+    "funding": "local test faucet only; no live funds",
+    "computeMvp": false,
+    "labOverrides": "difficulty 3 and reward interval 250ms versus source defaults 7 and 60000ms; default 2000ms P2P polling retained",
+    "instrumentation": "method timings, loopback-only listener shim, IPC peer configuration; production handlers and fork choice unchanged",
+    "persistence": "existing whole-snapshot write/rename; no fsync or power-loss durability guarantee",
+    "finalityClaim": false,
+    "publicTestnetCapacityClaim": false,
+    "nodeProtocol": "korek-planck-p2p/2",
+    "fixedSemantics": true
+  },
+  "phases": [
+    {
+      "name": "zero-work-10-offered-tps",
+      "nodesObserved": [
+        "A",
+        "B",
+        "C"
+      ],
+      "signingMs": 8.587519000000157,
+      "offeredRate": 10,
+      "attempted": 60,
+      "accepted": 60,
+      "rejected": 0,
+      "transportErrors": 0,
+      "replicatedOnAllNodes": 60,
+      "unreplicatedAccepted": 0,
+      "complete": true,
+      "elapsedThroughObservationMs": 8004.002103000001,
+      "localAcknowledgmentTps": 10.162877356033306,
+      "completeBatchReplicationTps": 7.49806629743932,
+      "ackLatency": {
+        "count": 60,
+        "p50Ms": 4.568457999999737,
+        "p95Ms": 5.088048999999955,
+        "maxMs": 6.44908900000064
+      },
+      "allNodeObservationLatency": {
+        "count": 60,
+        "p50Ms": 1141.3459260000009,
+        "p95Ms": 2026.4488240000019,
+        "maxMs": 2103.047603000001
+      },
+      "scheduleLateness": {
+        "count": 60,
+        "p50Ms": 0,
+        "p95Ms": 0.6141059999999925,
+        "maxMs": 0.776770000000397
+      },
+      "finalityTps": null,
+      "guaranteedFinalityMs": null
+    },
+    {
+      "name": "zero-work-50-offered-tps",
+      "nodesObserved": [
+        "A",
+        "B",
+        "C"
+      ],
+      "signingMs": 33.04514999999992,
+      "offeredRate": 50,
+      "attempted": 300,
+      "accepted": 300,
+      "rejected": 0,
+      "transportErrors": 0,
+      "replicatedOnAllNodes": 300,
+      "unreplicatedAccepted": 0,
+      "complete": true,
+      "elapsedThroughObservationMs": 8128.618789999999,
+      "localAcknowledgmentTps": 50.100891538751625,
+      "completeBatchReplicationTps": 36.92020882947831,
+      "ackLatency": {
+        "count": 300,
+        "p50Ms": 5.339127000001099,
+        "p95Ms": 8.129329999999754,
+        "maxMs": 18.34383600000001
+      },
+      "allNodeObservationLatency": {
+        "count": 300,
+        "p50Ms": 1266.8688559999991,
+        "p95Ms": 2107.4513100000004,
+        "maxMs": 2227.315397999999
+      },
+      "scheduleLateness": {
+        "count": 300,
+        "p50Ms": 0,
+        "p95Ms": 0.5540839999994205,
+        "maxMs": 3.2465479999991658
+      },
+      "finalityTps": null,
+      "guaranteedFinalityMs": null
+    },
+    {
+      "name": "zero-work-100-offered-tps",
+      "nodesObserved": [
+        "A",
+        "B",
+        "C"
+      ],
+      "signingMs": 52.82974699999977,
+      "offeredRate": 100,
+      "attempted": 600,
+      "accepted": 600,
+      "rejected": 0,
+      "transportErrors": 0,
+      "replicatedOnAllNodes": 600,
+      "unreplicatedAccepted": 0,
+      "complete": true,
+      "elapsedThroughObservationMs": 8181.347213000001,
+      "localAcknowledgmentTps": 99.81182856908346,
+      "completeBatchReplicationTps": 73.34973106343111,
+      "ackLatency": {
+        "count": 600,
+        "p50Ms": 9.189103999997315,
+        "p95Ms": 26.219640999999683,
+        "maxMs": 55.34297499999957
+      },
+      "allNodeObservationLatency": {
+        "count": 600,
+        "p50Ms": 1518.852692999997,
+        "p95Ms": 2275.435169999997,
+        "maxMs": 2424.543601000001
+      },
+      "scheduleLateness": {
+        "count": 600,
+        "p50Ms": 0,
+        "p95Ms": 0.3108940000020084,
+        "maxMs": 6.811872999998741
+      },
+      "finalityTps": null,
+      "guaranteedFinalityMs": null
+    },
+    {
+      "name": "follower-offline",
+      "nodesObserved": [
+        "A",
+        "B"
+      ],
+      "signingMs": 2.707228999999643,
+      "offeredRate": 50,
+      "attempted": 24,
+      "accepted": 24,
+      "rejected": 0,
+      "transportErrors": 0,
+      "replicatedOnAllNodes": 24,
+      "unreplicatedAccepted": 0,
+      "complete": true,
+      "elapsedThroughObservationMs": 1694.8296889999983,
+      "localAcknowledgmentTps": 50.88337050632097,
+      "completeBatchReplicationTps": 14.16322207466952,
+      "ackLatency": {
+        "count": 24,
+        "p50Ms": 11.365601000001334,
+        "p95Ms": 19.71239500000229,
+        "maxMs": 24.52795200000037
+      },
+      "allNodeObservationLatency": {
+        "count": 24,
+        "p50Ms": 1455.4131049999996,
+        "p95Ms": 1675.2370660000015,
+        "maxMs": 1694.1586700000007
+      },
+      "scheduleLateness": {
+        "count": 24,
+        "p50Ms": 0,
+        "p95Ms": 0.3012669999989157,
+        "maxMs": 0.370997999998508
+      },
+      "finalityTps": null,
+      "guaranteedFinalityMs": null
+    },
+    {
+      "name": "manual-ingress-failover",
+      "nodesObserved": [
+        "B",
+        "C"
+      ],
+      "signingMs": 2.4908849999992526,
+      "offeredRate": 50,
+      "attempted": 24,
+      "accepted": 24,
+      "rejected": 0,
+      "transportErrors": 0,
+      "replicatedOnAllNodes": 24,
+      "unreplicatedAccepted": 0,
+      "complete": true,
+      "elapsedThroughObservationMs": 1935.6354390000051,
+      "localAcknowledgmentTps": 51.17304078666828,
+      "completeBatchReplicationTps": 12.402484445426715,
+      "ackLatency": {
+        "count": 24,
+        "p50Ms": 11.989614000001893,
+        "p95Ms": 22.812023999998928,
+        "maxMs": 23.449021999997058
+      },
+      "allNodeObservationLatency": {
+        "count": 24,
+        "p50Ms": 1696.1624909999991,
+        "p95Ms": 1915.8929299999982,
+        "maxMs": 1934.8150159999968
+      },
+      "scheduleLateness": {
+        "count": 24,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0.2811420000034559
+      },
+      "finalityTps": null,
+      "guaranteedFinalityMs": null
+    }
+  ],
+  "events": [
+    {
+      "type": "node-start",
+      "node": "A",
+      "atMs": 120.968696,
+      "restoredHeight": 0
+    },
+    {
+      "type": "node-start",
+      "node": "B",
+      "atMs": 209.28422700000002,
+      "restoredHeight": 0
+    },
+    {
+      "type": "node-start",
+      "node": "C",
+      "atMs": 297.78047000000004,
+      "restoredHeight": 0
+    },
+    {
+      "type": "node-stop",
+      "node": "C",
+      "signal": "SIGKILL",
+      "atMs": 26797.883938
+    },
+    {
+      "type": "node-start",
+      "node": "C",
+      "atMs": 28732.893978,
+      "restoredHeight": 961
+    },
+    {
+      "type": "node-stop",
+      "node": "A",
+      "signal": "SIGKILL",
+      "atMs": 31111.276427999997
+    },
+    {
+      "type": "node-start",
+      "node": "A",
+      "atMs": 33294.493368999996,
+      "restoredHeight": 985
+    },
+    {
+      "type": "node-stop",
+      "node": "C",
+      "signal": "SIGTERM",
+      "atMs": 51521.429823
+    },
+    {
+      "type": "node-stop",
+      "node": "B",
+      "signal": "SIGTERM",
+      "atMs": 51521.437825
+    },
+    {
+      "type": "node-stop",
+      "node": "A",
+      "signal": "SIGTERM",
+      "atMs": 51521.441249999996
+    }
+  ],
+  "benchmarkSourceSha256": {
+    "run.mjs": "3da4413a6e8fd896cf601bab2770ca13cfc451e6e2726c27f21e551b55c60177",
+    "child.mjs": "3fc4422bfa03e9f1836ecf491b394ab6361c9ebbaf8c5d220969138992bcae5f",
+    "metrics.mjs": "d8a90659a23d0dedd3d3d298819db33b733d8ad4793a54054e75b5f03e388324"
+  },
+  "invalidRequests": {
+    "duplicateRejected": true,
+    "tamperedSignatureRejected": true
+  },
+  "followerRecovery": {
+    "signal": "SIGKILL",
+    "offlineNode": "C",
+    "acknowledgedWhileOffline": 24,
+    "recoveredAll": true,
+    "restartToObservedRecoveryMs": 2597.982832999998,
+    "reconnect": "driver rewires new ephemeral addresses"
+  },
+  "ingressRecovery": {
+    "signal": "SIGKILL",
+    "failedNode": "A",
+    "manualSubmissionNode": "B",
+    "recoveredAll": true,
+    "restartToObservedRecoveryMs": 2595.366277000001,
+    "automaticFailoverClaim": false
+  },
+  "partitionProbe": {
+    "controlledPeerDisconnection": true,
+    "equalHeightForkDidNotConverge": true,
+    "waitAfterReconnectMs": 4300,
+    "acknowledgedTransactionLostFromAllNodes": "295bb5bcc84251fd41f0fc7f029a6aa6fad4692de9c08ce00c24bc5643ed1aaf",
+    "lostApiReportedStatus": "included",
+    "longerEqualWorkForkRejected": true,
+    "convergedAfterSourceExtension": false,
+    "convergedAfterStrongerWork": true,
+    "meaning": "Tentative inclusion is not finality; only stronger verified work resolved the conflicting branches"
+  },
+  "positiveWorkGate": {
+    "firstAnchor": {
+      "height": 1012,
+      "hash": "3a826acaeaa8100868ba95a3ab34aaa1eb87189af357aef7c1d2bcd2b84bd04d",
+      "difficulty": 3,
+      "hashesTried": 414,
+      "elapsedMs": 24.48858100000507
+    },
+    "secondAnchor": {
+      "height": 1037,
+      "hash": "f9e58591868162fd73d5ce6954e8a8c5cc58a587ecd27aa2c7063c0d5fd9fcfd",
+      "difficulty": 3,
+      "hashesTried": 3688,
+      "elapsedMs": 22.32996500000445
+    },
+    "accepted": 24,
+    "replicatedBeforeNewWork": 24,
+    "observationWindowBeforeNewWorkMs": 4300,
+    "replicatedAfterNewWork": 24,
+    "timeToObservedReplicationBeforeNewWorkMs": 2182.478869999999,
+    "explanation": "Exact extensions propagate at equal positive work, before a further mining block exists"
+  },
+  "publicStatusChecks": {
+    "inclusionNotFinality": true,
+    "proofAnchoringNotFinality": true,
+    "canonicalBlockHashPreserved": true
+  },
+  "finalState": {
+    "consistentAcrossNodes": true,
+    "restoredSnapshotsMatch": true,
+    "exactTransferBalancesMatched": true,
+    "height": 1037,
+    "uniqueTransfers": 1035,
+    "cumulativeWork": "8192",
+    "acknowledgedTotal": 1036,
+    "acknowledgedButAbsent": [
+      "295bb5bcc84251fd41f0fc7f029a6aa6fad4692de9c08ce00c24bc5643ed1aaf"
+    ],
+    "powerLossDurabilityTested": false,
+    "nodeFailuresOccurredAfterPriorPhaseAcknowledgments": true
+  },
+  "completed": true,
+  "nodeMetrics": [
+    {
+      "label": "before-rate-sweep",
+      "atMs": 2366.179258,
+      "nodes": {
+        "A": {
+          "methods": {
+            "peerSync": {
+              "calls": 2,
+              "failures": 0,
+              "totalMs": 23.769544999999837,
+              "count": 2,
+              "p50Ms": 0.22805300000000273,
+              "p95Ms": 23.541491999999835,
+              "maxMs": 23.541491999999835
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 2,
+              "failures": 0,
+              "totalMs": 1.9392259999999624,
+              "count": 2,
+              "p50Ms": 0.7716409999999883,
+              "p95Ms": 1.1675849999999741,
+              "maxMs": 1.1675849999999741
+            },
+            "admission": {
+              "calls": 1,
+              "failures": 0,
+              "totalMs": 1.425342999999998,
+              "count": 1,
+              "p50Ms": 1.425342999999998,
+              "p95Ms": 1.425342999999998,
+              "maxMs": 1.425342999999998
+            },
+            "sealAndExecution": {
+              "calls": 1,
+              "failures": 0,
+              "totalMs": 0.23292000000003554,
+              "count": 1,
+              "p50Ms": 0.23292000000003554,
+              "p95Ms": 0.23292000000003554,
+              "maxMs": 0.23292000000003554
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 150344,
+            "system": 50805
+          },
+          "maxRssBytes": 71053312
+        },
+        "B": {
+          "methods": {
+            "peerSync": {
+              "calls": 2,
+              "failures": 0,
+              "totalMs": 23.578897999999924,
+              "count": 2,
+              "p50Ms": 0.09656499999999824,
+              "p95Ms": 23.482332999999926,
+              "maxMs": 23.482332999999926
+            },
+            "snapshotValidation": {
+              "calls": 2,
+              "failures": 0,
+              "totalMs": 1.3924839999999676,
+              "count": 2,
+              "p50Ms": 0.42140399999971123,
+              "p95Ms": 0.9710800000002564,
+              "maxMs": 0.9710800000002564
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 1,
+              "failures": 0,
+              "totalMs": 1.1958880000001955,
+              "count": 1,
+              "p50Ms": 1.1958880000001955,
+              "p95Ms": 1.1958880000001955,
+              "maxMs": 1.1958880000001955
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 140612,
+            "system": 34195
+          },
+          "maxRssBytes": 70127616
+        },
+        "C": {
+          "methods": {
+            "peerSync": {
+              "calls": 2,
+              "failures": 0,
+              "totalMs": 34.596209000000115,
+              "count": 2,
+              "p50Ms": 0.09323999999999444,
+              "p95Ms": 34.50296900000012,
+              "maxMs": 34.50296900000012
+            },
+            "snapshotValidation": {
+              "calls": 2,
+              "failures": 0,
+              "totalMs": 1.5103200000003199,
+              "count": 2,
+              "p50Ms": 0.36145299999998315,
+              "p95Ms": 1.1488670000003367,
+              "maxMs": 1.1488670000003367
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 1,
+              "failures": 0,
+              "totalMs": 3.570427000000109,
+              "count": 1,
+              "p50Ms": 3.570427000000109,
+              "p95Ms": 3.570427000000109,
+              "maxMs": 3.570427000000109
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 158255,
+            "system": 30804
+          },
+          "maxRssBytes": 70615040
+        }
+      }
+    },
+    {
+      "label": "after-rate-sweep",
+      "atMs": 26780.061346,
+      "nodes": {
+        "A": {
+          "methods": {
+            "peerSync": {
+              "calls": 14,
+              "failures": 0,
+              "totalMs": 91.91365500000411,
+              "count": 14,
+              "p50Ms": 4.45276400000148,
+              "p95Ms": 23.541491999999835,
+              "maxMs": 23.541491999999835
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 962,
+              "failures": 0,
+              "totalMs": 5813.538653999996,
+              "count": 962,
+              "p50Ms": 4.898462999997719,
+              "p95Ms": 16.970540999998775,
+              "maxMs": 48.001719000003504
+            },
+            "admission": {
+              "calls": 961,
+              "failures": 0,
+              "totalMs": 277.8573400000024,
+              "count": 961,
+              "p50Ms": 0.2672919999968144,
+              "p95Ms": 0.43011699999988195,
+              "maxMs": 2.585848000000624
+            },
+            "sealAndExecution": {
+              "calls": 961,
+              "failures": 0,
+              "totalMs": 28.01798400000382,
+              "count": 961,
+              "p50Ms": 0.023505999997723848,
+              "p95Ms": 0.05368099999941478,
+              "maxMs": 0.846161999999822
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 5225554,
+            "system": 1049906
+          },
+          "maxRssBytes": 95133696
+        },
+        "B": {
+          "methods": {
+            "peerSync": {
+              "calls": 14,
+              "failures": 0,
+              "totalMs": 1669.1388710000026,
+              "count": 14,
+              "p50Ms": 58.32661100000041,
+              "p95Ms": 368.7345150000001,
+              "maxMs": 368.7345150000001
+            },
+            "snapshotValidation": {
+              "calls": 26,
+              "failures": 0,
+              "totalMs": 1351.9872940000023,
+              "count": 26,
+              "p50Ms": 33.69995999999992,
+              "p95Ms": 139.93061300000045,
+              "maxMs": 167.87078400000246
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 13,
+              "failures": 0,
+              "totalMs": 106.08092900000383,
+              "count": 13,
+              "p50Ms": 3.8005130000001373,
+              "p95Ms": 25.376883000000817,
+              "maxMs": 25.376883000000817
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 2132401,
+            "system": 130367
+          },
+          "maxRssBytes": 94105600
+        },
+        "C": {
+          "methods": {
+            "peerSync": {
+              "calls": 13,
+              "failures": 0,
+              "totalMs": 1967.6974040000002,
+              "count": 13,
+              "p50Ms": 71.82147700000132,
+              "p95Ms": 593.2910730000003,
+              "maxMs": 593.2910730000003
+            },
+            "snapshotValidation": {
+              "calls": 24,
+              "failures": 0,
+              "totalMs": 1370.1151560000044,
+              "count": 24,
+              "p50Ms": 50.357851999999184,
+              "p95Ms": 135.29488400000264,
+              "maxMs": 140.06601600000067
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 11,
+              "failures": 0,
+              "totalMs": 85.22885900000074,
+              "count": 11,
+              "p50Ms": 4.217620999999781,
+              "p95Ms": 23.53763799999797,
+              "maxMs": 23.53763799999797
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 2187961,
+            "system": 105918
+          },
+          "maxRssBytes": 95776768
+        }
+      }
+    },
+    {
+      "label": "before-follower-crash",
+      "atMs": 26790.586739,
+      "nodes": {
+        "A": {
+          "methods": {
+            "peerSync": {
+              "calls": 14,
+              "failures": 0,
+              "totalMs": 91.91365500000411,
+              "count": 14,
+              "p50Ms": 4.45276400000148,
+              "p95Ms": 23.541491999999835,
+              "maxMs": 23.541491999999835
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 962,
+              "failures": 0,
+              "totalMs": 5813.538653999996,
+              "count": 962,
+              "p50Ms": 4.898462999997719,
+              "p95Ms": 16.970540999998775,
+              "maxMs": 48.001719000003504
+            },
+            "admission": {
+              "calls": 963,
+              "failures": 2,
+              "totalMs": 278.4313240000048,
+              "count": 963,
+              "p50Ms": 0.2672919999968144,
+              "p95Ms": 0.43011699999988195,
+              "maxMs": 2.585848000000624
+            },
+            "sealAndExecution": {
+              "calls": 961,
+              "failures": 0,
+              "totalMs": 28.01798400000382,
+              "count": 961,
+              "p50Ms": 0.023505999997723848,
+              "p95Ms": 0.05368099999941478,
+              "maxMs": 0.846161999999822
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 5227759,
+            "system": 1049908
+          },
+          "maxRssBytes": 95133696
+        },
+        "B": {
+          "methods": {
+            "peerSync": {
+              "calls": 14,
+              "failures": 0,
+              "totalMs": 1669.1388710000026,
+              "count": 14,
+              "p50Ms": 58.32661100000041,
+              "p95Ms": 368.7345150000001,
+              "maxMs": 368.7345150000001
+            },
+            "snapshotValidation": {
+              "calls": 26,
+              "failures": 0,
+              "totalMs": 1351.9872940000023,
+              "count": 26,
+              "p50Ms": 33.69995999999992,
+              "p95Ms": 139.93061300000045,
+              "maxMs": 167.87078400000246
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 13,
+              "failures": 0,
+              "totalMs": 106.08092900000383,
+              "count": 13,
+              "p50Ms": 3.8005130000001373,
+              "p95Ms": 25.376883000000817,
+              "maxMs": 25.376883000000817
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 2132748,
+            "system": 130389
+          },
+          "maxRssBytes": 94105600
+        },
+        "C": {
+          "methods": {
+            "peerSync": {
+              "calls": 14,
+              "failures": 0,
+              "totalMs": 2463.9071840000015,
+              "count": 14,
+              "p50Ms": 71.82147700000132,
+              "p95Ms": 593.2910730000003,
+              "maxMs": 593.2910730000003
+            },
+            "snapshotValidation": {
+              "calls": 24,
+              "failures": 0,
+              "totalMs": 1370.1151560000044,
+              "count": 24,
+              "p50Ms": 50.357851999999184,
+              "p95Ms": 135.29488400000264,
+              "maxMs": 140.06601600000067
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 12,
+              "failures": 0,
+              "totalMs": 104.73111600000084,
+              "count": 12,
+              "p50Ms": 4.217620999999781,
+              "p95Ms": 23.53763799999797,
+              "maxMs": 23.53763799999797
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 2188796,
+            "system": 105958
+          },
+          "maxRssBytes": 95776768
+        }
+      }
+    },
+    {
+      "label": "before-ingress-crash",
+      "atMs": 31093.649919,
+      "nodes": {
+        "A": {
+          "methods": {
+            "peerSync": {
+              "calls": 16,
+              "failures": 0,
+              "totalMs": 99.28425600000647,
+              "count": 16,
+              "p50Ms": 4.397210000000996,
+              "p95Ms": 23.541491999999835,
+              "maxMs": 23.541491999999835
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 986,
+              "failures": 0,
+              "totalMs": 6028.98086399999,
+              "count": 986,
+              "p50Ms": 4.9985539999979665,
+              "p95Ms": 16.860225000000355,
+              "maxMs": 48.001719000003504
+            },
+            "admission": {
+              "calls": 987,
+              "failures": 2,
+              "totalMs": 285.5740120000047,
+              "count": 987,
+              "p50Ms": 0.26789300000018557,
+              "p95Ms": 0.4275930000003427,
+              "maxMs": 2.585848000000624
+            },
+            "sealAndExecution": {
+              "calls": 985,
+              "failures": 0,
+              "totalMs": 28.765166000013892,
+              "count": 985,
+              "p50Ms": 0.023424999999406282,
+              "p95Ms": 0.0537609999992128,
+              "maxMs": 0.846161999999822
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 5621342,
+            "system": 1093340
+          },
+          "maxRssBytes": 101380096
+        },
+        "B": {
+          "methods": {
+            "peerSync": {
+              "calls": 16,
+              "failures": 0,
+              "totalMs": 1970.910426000002,
+              "count": 16,
+              "p50Ms": 58.32661100000041,
+              "p95Ms": 368.7345150000001,
+              "maxMs": 368.7345150000001
+            },
+            "snapshotValidation": {
+              "calls": 28,
+              "failures": 0,
+              "totalMs": 1626.516058000001,
+              "count": 28,
+              "p50Ms": 37.25114199999916,
+              "p95Ms": 144.07661499999813,
+              "maxMs": 167.87078400000246
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 14,
+              "failures": 0,
+              "totalMs": 121.73036500000353,
+              "count": 14,
+              "p50Ms": 3.8005130000001373,
+              "p95Ms": 25.376883000000817,
+              "maxMs": 25.376883000000817
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 2579146,
+            "system": 149250
+          },
+          "maxRssBytes": 97067008
+        },
+        "C": {
+          "methods": {
+            "snapshotValidation": {
+              "calls": 3,
+              "failures": 0,
+              "totalMs": 454.0850979999996,
+              "count": 3,
+              "p50Ms": 150.2286949999998,
+              "p95Ms": 157.46426699999984,
+              "maxMs": 157.46426699999984
+            },
+            "peerSync": {
+              "calls": 1,
+              "failures": 0,
+              "totalMs": 0.09459199999997736,
+              "count": 1,
+              "p50Ms": 0.09459199999997736,
+              "p95Ms": 0.09459199999997736,
+              "maxMs": 0.09459199999997736
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 732850,
+            "system": 65279
+          },
+          "maxRssBytes": 89223168
+        }
+      }
+    },
+    {
+      "label": "final",
+      "atMs": 51031.878624,
+      "nodes": {
+        "A": {
+          "methods": {
+            "snapshotValidation": {
+              "calls": 3,
+              "failures": 0,
+              "totalMs": 442.0467159999996,
+              "count": 3,
+              "p50Ms": 145.537912,
+              "p95Ms": 153.0226349999998,
+              "maxMs": 153.0226349999998
+            },
+            "peerSync": {
+              "calls": 9,
+              "failures": 0,
+              "totalMs": 406.7426469999991,
+              "count": 9,
+              "p50Ms": 5.240077999998903,
+              "p95Ms": 367.2355470000002,
+              "maxMs": 367.2355470000002
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 29,
+              "failures": 0,
+              "totalMs": 272.7659750000025,
+              "count": 29,
+              "p50Ms": 8.066327000000456,
+              "p95Ms": 17.998618999999962,
+              "maxMs": 18.984951000000365
+            },
+            "admission": {
+              "calls": 26,
+              "failures": 0,
+              "totalMs": 6.987671000003502,
+              "count": 26,
+              "p50Ms": 0.2580680000010034,
+              "p95Ms": 0.37006600000040635,
+              "maxMs": 0.6015740000002552
+            },
+            "sealAndExecution": {
+              "calls": 26,
+              "failures": 0,
+              "totalMs": 1.123366000002079,
+              "count": 26,
+              "p50Ms": 0.028183000000353786,
+              "p95Ms": 0.07050600000002305,
+              "maxMs": 0.2537420000003294
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 1250482,
+            "system": 155057
+          },
+          "maxRssBytes": 100986880
+        },
+        "B": {
+          "methods": {
+            "peerSync": {
+              "calls": 26,
+              "failures": 0,
+              "totalMs": 3744.749085999996,
+              "count": 26,
+              "p50Ms": 88.83987999999954,
+              "p95Ms": 328.8508920000022,
+              "maxMs": 368.7345150000001
+            },
+            "snapshotValidation": {
+              "calls": 39,
+              "failures": 0,
+              "totalMs": 3150.6231640000187,
+              "count": 39,
+              "p50Ms": 69.00439100000222,
+              "p95Ms": 149.25484599999618,
+              "maxMs": 167.87078400000246
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 42,
+              "failures": 0,
+              "totalMs": 405.54542400000764,
+              "count": 42,
+              "p50Ms": 8.846750000000611,
+              "p95Ms": 18.69327200000407,
+              "maxMs": 25.376883000000817
+            },
+            "admission": {
+              "calls": 25,
+              "failures": 0,
+              "totalMs": 7.80812899999728,
+              "count": 25,
+              "p50Ms": 0.27916000000186614,
+              "p95Ms": 0.4898670000002312,
+              "maxMs": 0.7627570000004198
+            },
+            "sealAndExecution": {
+              "calls": 25,
+              "failures": 0,
+              "totalMs": 1.5731460000097286,
+              "count": 25,
+              "p50Ms": 0.035403000001679175,
+              "p95Ms": 0.293971999999485,
+              "maxMs": 0.3301659999997355
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 4863572,
+            "system": 222057
+          },
+          "maxRssBytes": 124215296
+        },
+        "C": {
+          "methods": {
+            "snapshotValidation": {
+              "calls": 17,
+              "failures": 0,
+              "totalMs": 2456.68264599999,
+              "count": 17,
+              "p50Ms": 145.67164499999853,
+              "p95Ms": 170.76877199999944,
+              "maxMs": 170.76877199999944
+            },
+            "peerSync": {
+              "calls": 12,
+              "failures": 0,
+              "totalMs": 2540.9796819999992,
+              "count": 12,
+              "p50Ms": 295.9362890000011,
+              "p95Ms": 380.95707900000025,
+              "maxMs": 380.95707900000025
+            },
+            "snapshotSaveIncludingQueue": {
+              "calls": 8,
+              "failures": 0,
+              "totalMs": 118.11468399999785,
+              "count": 8,
+              "p50Ms": 14.10287199999948,
+              "p95Ms": 24.98440900000014,
+              "maxMs": 24.98440900000014
+            }
+          },
+          "cpuUsageMicros": {
+            "user": 3238853,
+            "system": 114034
+          },
+          "maxRssBytes": 104640512
+        }
+      }
+    }
+  ],
+  "totalMs": 52113.541702,
+  "driver": {
+    "cpuUsageMicros": {
+      "user": 5476202,
+      "system": 558085
+    },
+    "maxRssBytes": 169746432
+  },
+  "limitations": [
+    "Single same-host run; finite offered-rate windows and a small growing chain, not a sustainable capacity estimate",
+    "Closed maximum-in-flight cap can throttle the offered schedule; recorded lateness must be inspected",
+    "Driver polling, timing wrappers and three server processes compete on the same CPU/disk",
+    "All-node observation is sampled, not exact arrival time, economic finality, or Byzantine consensus",
+    "Rate-sweep blocks have zero cumulative proof-of-work and precede the controlled mining scenario",
+    "Crash tests stop owned processes after acknowledgments; no power loss, corrupt disk or mid-write fault injection",
+    "No WAN, geographic decentralization, adversarial validator quorum, long-duration saturation, or public-testnet TPS measurement"
+  ],
+  "rawTimingTrace": {
+    "file": "latency-samples.jsonl",
+    "rows": 1008,
+    "sha256": "5ad61ca612055ebd89d5fba559bbfbd9452b3570d1521a5b5eafeb9a30b9da4b",
+    "units": "unrounded monotonic milliseconds since driver start; null observer means intentionally offline",
+    "recomputedPercentilesAndThroughputMatch": true
+  }
+}

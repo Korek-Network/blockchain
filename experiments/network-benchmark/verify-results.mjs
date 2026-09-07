@@ -3,8 +3,10 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { phaseMetrics } from "./metrics.mjs";
 
-const report = JSON.parse(await readFile(new URL("./results/benchmark.json", import.meta.url), "utf8"));
-const trace = await readFile(new URL("./results/latency-samples.jsonl", import.meta.url), "utf8");
+if (process.argv.slice(2).some(x => x !== "--fixed")) throw new Error("Only --fixed is supported");
+const folder = process.argv.includes("--fixed") ? "./results/fixed/" : "./results/";
+const report = JSON.parse(await readFile(new URL(`${folder}benchmark.json`, import.meta.url), "utf8"));
+const trace = await readFile(new URL(`${folder}latency-samples.jsonl`, import.meta.url), "utf8");
 assert.equal(createHash("sha256").update(trace).digest("hex"), report.rawTimingTrace.sha256);
 const [header, ...rows] = trace.trim().split("\n").map(JSON.parse);
 assert.equal(header.columns.length, 12);

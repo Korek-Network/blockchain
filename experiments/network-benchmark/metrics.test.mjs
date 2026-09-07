@@ -17,9 +17,9 @@ test("benchmark signs real version-three transfers with fees and unique IDs", ()
   assert.throws(() => chain.addTransaction(a.tx), /Duplicate/);
   assert.throws(() => chain.addTransaction({ ...b.tx, amount: "2" }), /signature/);
   chain.sealPending();
-  assert.equal(chain.transaction(a.id).status, "confirmed");
+  assert.equal(chain.transaction(a.id).status, "included");
   assert.equal(chain.transaction(a.id).fee, "21000");
-  assert.equal(blockWork(chain.chain.at(-1)), 0n); // API-style "confirmed" is not finality.
+  assert.equal(blockWork(chain.chain.at(-1)), 0n); // Inclusion is explicitly not finality.
 });
 test("replication requires every observer and identical block placement", () => {
   assert.equal(commonPlacement("id", []), null);

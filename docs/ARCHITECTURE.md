@@ -2,7 +2,7 @@
 
 KOREK is an experimental proof-of-work settlement network with a research path toward independently verifiable distributed computation. Consensus must remain safe when no useful-compute jobs are available, so useful work cannot replace the chain's independently verifiable security proof without a reviewed protocol.
 
-Planck uses rapid testnet transfer finality separately from reward blocks. A transfer-finality event does not mint KRK or advance the reward-halving counter. This is a testnet mechanism, not evidence of production consensus or throughput.
+Planck seals transfers into zero-work blocks separately from reward blocks. This is local inclusion, not finality: it neither mints KRK nor advances the reward-halving counter. A later accepted client-PoW block anchors prior transfers on the selected branch, but stronger-work reorganizations remain possible. See [confirmation and synchronization](CONFIRMATION_AND_SYNC.md) for the experimental observation API and P2P-v2 rules.
 
 ## Supply model under test
 
@@ -21,7 +21,7 @@ At the initial subsidy, the miner receives 47.5 KRK plus fees and the treasury r
 
 1. **Ledger and execution:** signed transfers, balances, fee pool and deterministic block validation.
 2. **Mining:** wallet-signed Protocol v3 templates and independently verified SHA-256 proofs from CPU or experimental WebGPU clients.
-3. **Networking:** signed node identities, peer discovery and longer-chain Planck synchronization.
+3. **Networking:** signed node identities, peer discovery and verified stronger-work selection; equal-work candidates must be strict extensions of the entire selected block history. Conflicting equal-work branches are retained until stronger work resolves them.
 4. **Storage:** checksummed persistent snapshots with restart recovery.
 5. **Clients:** public explorer, desktop miner, desktop wallet and node packages.
 6. **Crypto boundary:** versioned account formats designed to permit reviewed future migration.

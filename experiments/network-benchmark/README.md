@@ -1,5 +1,25 @@
 # KOREK local multi-node benchmark
 
+## Experimental fix rerun
+
+The original evidence below is frozen at commit
+`aad233179a5977d164572588636cf501906d2aca`. It describes the **pre-fix** behavior,
+not the current branch. The confirmation/synchronization changes and the new
+three-node results are documented in
+[CONFIRMATION_AND_SYNC.md](../../docs/CONFIRMATION_AND_SYNC.md). New evidence is
+kept separately in [results/fixed/benchmark.json](results/fixed/benchmark.json)
+and [results/fixed/latency-samples.jsonl](results/fixed/latency-samples.jsonl).
+
+On this branch, use `node experiments/network-benchmark/run.mjs --fixed` (add
+`--smoke` for a short check), then
+`node experiments/network-benchmark/verify-results.mjs --fixed` to verify the
+committed fixed trace. The driver rejects a mismatched protocol/expectation mode.
+The no-flag verifier still checks the original evidence without starting nodes.
+Unlike the original benchmark-only branch, this branch **does change production
+source**, but does not deploy it or change mining/supply rules.
+
+## Original baseline report (historical)
+
 **The benchmark works, but it does not establish finality or public-testnet TPS.**
 It reproduced a locally "confirmed" transfer disappearing after a branch change,
 and transfer propagation waiting for additional proof-of-work after mining began.
@@ -104,9 +124,11 @@ changing live behavior. Then benchmark incremental persistence/batching and peer
 synchronization, followed by longer tests on geographically separated machines.
 This benchmark does not authorize or perform those protocol changes.
 
-## Reproduce and inspect
+## Reproduce and inspect the baseline
 
-From the repository root, using Node 22 or newer, without additional dependencies:
+Use a separate checkout of baseline commit
+`aad233179a5977d164572588636cf501906d2aca` for these historical no-flag run commands.
+From its repository root, using Node 22 or newer, without additional dependencies:
 
 ```sh
 node --test experiments/network-benchmark/metrics.test.mjs

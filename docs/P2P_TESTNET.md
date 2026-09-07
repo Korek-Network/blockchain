@@ -2,7 +2,26 @@
 
 Planck v0.7.1 can run multiple node processes with independent signed identities. Nodes select a compatible chain by verified cumulative proof-of-work rather than height alone, so a longer zero-work chain cannot replace a stronger chain.
 
-Peers with a shared history download only their missing blocks in bounded ranges. `--max-blocks-per-request` controls the range size from 1 to 256 blocks (default 64). A signed full snapshot is retained only as a compatibility fallback when histories diverge.
+**Experimental compatibility change:** this branch uses `korek-planck-p2p/2` and
+rejects version-1 envelopes. The displayed node version is still `0.7.1`; check
+the protocol field, not the version label alone. Use this exact experimental
+revision for every node in an isolated test. Do not point these nodes at the live
+testnet or upgrade live nodes individually. Review and a coordinated testnet
+upgrade are still required; no deployment is included here.
+
+Equal-work candidates are accepted only when they strictly extend every block
+hash in the current local chain, including after mining starts. Conflicting
+equal-work forks do not win by height. A shorter chain can win with greater
+verified cumulative work; inclusion and PoW anchoring can both be reorganized.
+See [the API and migration notes](CONFIRMATION_AND_SYNC.md).
+
+Peers with a shared history download missing blocks in bounded ranges.
+`--max-blocks-per-request` controls the range size from 1 to 256 blocks (default
+64). A signed full snapshot is used when histories diverge, a stronger-work peer
+is shorter, or 32 range requests cannot catch a moving tip. The final signed
+response must match the downloaded tip, height and validated cumulative work.
+Responses above 16 MiB fail closed; this is a resource bound, not a scalable
+long-chain storage/synchronization design.
 
 > This is testnet synchronization, not production hostile-network consensus. Use isolated development machines or a private LAN.
 

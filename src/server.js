@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { dirname,extname,join,normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { KorekChain } from "./blockchain.js";
+import { chainSelection } from "./chain-selection.js";
 import { ComputeMarket } from "./compute-market.js";
 import { ComputeValidatorRegistry } from "./validator-registry.js";
 import { NETWORK } from "./config.js";
@@ -57,21 +58,21 @@ const submitWork=async input=>{const now=Date.now();cleanupWork(now);try{if(used
 const requireCompute=()=>{if(!computeMarket||!validatorRegistry)throw new Error("Useful-compute MVP is disabled on this node; start with KOREK_COMPUTE_MVP=1")};
 const persistCompute=async action=>{requireCompute();const result=action();preservedCompute=computeMarket.snapshot();preservedValidators=validatorRegistry.snapshot();await saveNodeState();return result};
 
-if(p2pRequested){p2p=new P2PNetwork({identity:nodeKey,name:nodeName,port:p2pPort,advertiseUrl:p2pAdvertise,seeds:peerSeeds,maxPeers:64,syncBatchSize:maxBlocks,getChain:()=>chain,onSnapshot:async(snapshot,peer)=>{const candidate=KorekChain.fromSnapshot(snapshot),candidateWork=candidate.cumulativeWork(),localWork=chain.cumulativeWork();if(candidateWork<localWork||(candidateWork===localWork&&(candidateWork>0n||candidate.chain.length<=chain.chain.length)))return;chain=candidate;await saveNodeState();console.log(`Synced to block #${chain.chain.length-1} with cumulative work ${candidateWork} from ${peer.peerId.slice(0,12)} at ${peer.url}`)}});await p2p.start();updateSync();setInterval(updateSync,500).unref()}
+if(p2pRequested){p2p=new P2PNetwork({identity:nodeKey,name:nodeName,port:p2pPort,advertiseUrl:p2pAdvertise,seeds:peerSeeds,maxPeers:64,syncBatchSize:maxBlocks,getChain:()=>chain,onSnapshot:async(snapshot,peer)=>{const candidate=KorekChain.fromSnapshot(snapshot);if(!chainSelection(chain,candidate).adopt)return false;chain=candidate;await saveNodeState();console.log(`Synced to block #${chain.chain.length-1} with cumulative work ${chain.cumulativeWork()} from ${peer.peerId.slice(0,12)} at ${peer.url}`);return true}});await p2p.start();updateSync();setInterval(updateSync,500).unref()}
 
 const apiServer=createServer(async(req,res)=>{try{const url=new URL(req.url,`http://${req.headers.host}`);
  if(req.method==="GET"&&url.pathname==="/api/status")return json(res,200,nodeStatus(),true);
  if(req.method==="GET"&&url.pathname==="/api/peers")return json(res,200,p2p?.publicPeers()||[],true);
- if(req.method==="GET"&&url.pathname==="/api/blocks"){const limit=Math.max(1,Math.min(500,Number(url.searchParams.get("limit")||50)));return json(res,200,chain.chain.slice(-limit).reverse(),true)}
- if(req.method==="GET"&&url.pathname==="/api/transactions"){const limit=Math.max(1,Math.min(500,Number(url.searchParams.get("limit")||100)));return json(res,200,chain.transactions().slice(0,limit),true)}
+ if(req.method==="GET"&&url.pathname==="/api/blocks"){const limit=Math.max(1,Math.min(500,Number(url.searchParams.get("limit")||50)));return json(res,200,chain.blocks(limit),true)}
+ if(req.method==="GET"&&url.pathname==="/api/transactions"){const limit=Math.max(1,Math.min(500,Number(url.searchParams.get("limit")||100)));return json(res,200,chain.transactions(limit),true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/transaction/")){const tx=chain.transaction(url.pathname.split("/").at(-1));return tx?json(res,200,tx,true):json(res,404,{error:"Transaction not found"},true)}
- if(req.method==="GET"&&url.pathname.startsWith("/api/block/")){const block=chain.block(url.pathname.split("/").at(-1));return block?json(res,200,block,true):json(res,404,{error:"Block not found"},true)}
+ if(req.method==="GET"&&url.pathname.startsWith("/api/block/")){const block=chain.block(url.pathname.split("/").at(-1),{canonical:url.searchParams.get("format")==="canonical"});return block?json(res,200,block,true):json(res,404,{error:"Block not found"},true)}
  if(req.method==="GET"&&url.pathname.startsWith("/api/balance/")){const address=url.pathname.split("/").at(-1);return json(res,200,{address,balance:chain.balance(address)},true)}
  if(req.method==="GET"&&url.pathname==="/miner/v3/status")return json(res,200,nodeStatus(),true);
  if(req.method==="POST"&&url.pathname==="/miner/v3/work")return json(res,201,await issueWork(await body(req)),true);
  if(req.method==="POST"&&url.pathname==="/miner/v3/submit")return json(res,201,await submitWork(await body(req)),true);
  if(req.method==="POST"&&url.pathname==="/api/wallet"){const wallet=cryptoProvider.createWallet();res.setHeader("cache-control","no-store");return json(res,201,wallet,true)}
- if(req.method==="POST"&&url.pathname==="/api/transactions"){const tx=chain.addTransaction(await body(req));chain.sealPending();await saveNodeState();return json(res,201,chain.transaction(tx.id),true)}
+ if(req.method==="POST"&&url.pathname==="/api/transactions"){const tx=chain.addTransaction(await body(req));chain.sealPending();await saveNodeState();const observed=chain.transaction(tx.id);return observed?json(res,201,observed,true):json(res,409,{id:tx.id,status:"reorganized",finalized:false,error:"Transaction left the selected chain before acknowledgment"},true)}
  if(req.method==="POST"&&url.pathname==="/api/faucet"){const input=await body(req),claim=chain.claimFaucet(input.address);await saveNodeState();return json(res,201,claim,true)}
  if(req.method==="GET"&&url.pathname==="/api/compute/status")return json(res,200,computeStatus(),true);
  if(req.method==="GET"&&url.pathname==="/api/compute/validators"){requireCompute();return json(res,200,validatorRegistry.list({status:url.searchParams.get("status"),limit:url.searchParams.get("limit")||100}),true)}
