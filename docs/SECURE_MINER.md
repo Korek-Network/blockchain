@@ -1,63 +1,63 @@
-# Secure node-to-miner connection
+# Secure public mining gateway
 
-KOREK Planck v0.6 uses the incompatible `korek-planck-miner/2` protocol. Every authenticated request includes an HMAC-SHA256 signature over the HTTP method, path, timestamp, random nonce, and SHA-256 body hash. The node rejects altered requests, reused nonces, and timestamps outside a 30-second window.
+KOREK Planck v0.7.1 uses wallet-signed Mining Protocol v3. The miner performs proof-of-work locally and signs both work requests and proof submissions. The server verifies that the signing key owns the reward address.
 
-## Local mining
+Protocol identifier: `korek-planck-miner/3`
 
-The miner service binds to `127.0.0.1` by default. A miner on the same computer can connect without certificates or a token:
+## Public miner connection
 
-```bash
-npm start
+Official desktop miners use:
+
+`https://rpc.planck.korek.network`
+
+The same HTTPS origin provides:
+
+- `GET /api/status`
+- `GET /api/balance/:address`
+- `POST /miner/v3/work`
+- `POST /miner/v3/submit`
+- `GET /miner/v3/status`
+
+No shared HMAC token or reward inner hash is used by Protocol v3. The wallet's recovery phrase and private key must remain on the miner computer.
+
+## Node binding
+
+Keep the node API and raw miner listener on loopback:
+
+```text
+127.0.0.1:8365
+127.0.0.1:9833
 ```
 
-In another terminal:
+Do not open port 9833 in the public firewall. Publish the API and Protocol v3 paths through an HTTPS reverse proxy.
 
-```bash
-npm run mine:remote -- \
-  --node-url http://127.0.0.1:9833 \
-  --rewards-inner-hash YOUR_64_CHARACTER_INNER_HASH
+Example Caddy site:
+
+```caddyfile
+rpc.planck.example.com {
+    encode zstd gzip
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-Frame-Options DENY
+    }
+    reverse_proxy 127.0.0.1:8365
+}
 ```
 
-Never make an unauthenticated miner port reachable from another machine.
+Use a valid public certificate, keep the operating system updated, apply request/body/time limits at the edge, monitor rejections, and preserve node data and identity backups.
 
-## Secure remote mining
+## Verification
 
-Use a trusted TLS certificate and a random shared token. Generate the token once:
-
-```bash
-openssl rand -hex 32
-```
-
-Keep the token out of source control, screenshots, logs, and shell history. In production, load it from a root-readable environment file or secret manager.
-
-Start the node:
+From another computer:
 
 ```bash
-export KOREK_MINER_AUTH_TOKEN='PASTE_THE_RANDOM_TOKEN'
-
-node src/server.js \
-  --miner-host 0.0.0.0 \
-  --miner-listen-port 9833 \
-  --miner-auth-token "$KOREK_MINER_AUTH_TOKEN" \
-  --miner-tls-cert /etc/letsencrypt/live/node.example.com/fullchain.pem \
-  --miner-tls-key /etc/letsencrypt/live/node.example.com/privkey.pem
+curl https://rpc.planck.example.com/api/status
+curl https://rpc.planck.example.com/miner/v3/status
 ```
 
-Start the matching miner:
-
-```bash
-export KOREK_MINER_AUTH_TOKEN='PASTE_THE_SAME_RANDOM_TOKEN'
-
-npm run mine:remote -- \
-  --node-url https://node.example.com:9833 \
-  --auth-token "$KOREK_MINER_AUTH_TOKEN" \
-  --rewards-inner-hash YOUR_64_CHARACTER_INNER_HASH
-```
-
-For a private certificate authority, set `NODE_EXTRA_CA_CERTS=/path/to/ca.pem` on the miner. Do not disable TLS verification.
-
-The node deliberately refuses `--miner-host 0.0.0.0` or any other non-loopback bind unless both a certificate/key pair and authentication token are configured. Node and miner clocks must be synchronized because signed requests expire after 30 seconds.
+Both responses must identify `korek-planck-testnet-1` and `korek-planck-miner/3`.
 
 ## Security scope
 
-TLS protects the connection and verifies the server. HMAC authenticates possession of the shared token and prevents replay within the acceptance window. This is not mutual TLS, QUIC/Noise, hardware-backed key storage, proof verification, or an audited production protocol. Those remain required before mainnet.
+TLS authenticates and encrypts the network connection. Wallet signatures bind work and submissions to the reward account. Single-use request nonces and short timestamp windows reduce replay risk. These controls do not replace a consensus audit, denial-of-service protection, hardware-backed wallet security, protocol fuzzing or hostile-network testing.
