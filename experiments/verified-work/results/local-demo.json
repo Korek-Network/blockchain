@@ -1,0 +1,148 @@
+{
+  "experiment": "korek-verified-work-poc/1",
+  "runAt": "2026-09-07T11:43:52.744Z",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpusVisible": 9,
+    "workerThreadsUsed": 1,
+    "rssBytesAtEnd": 49872896
+  },
+  "scope": {
+    "execution": "single-process simulation with three generated signing identities",
+    "verification": "full-recomputation, not a succinct proof",
+    "consensus": "none",
+    "storage": "in-memory; replay from the same signed event sequence",
+    "currency": "fictional demo units, no Planck balances or issuance",
+    "chainFinalityMeasured": false,
+    "realWorldTps": null,
+    "electricityMeasured": false,
+    "fiatCostMeasured": false
+  },
+  "scenario": {
+    "outcomes": [
+      {
+        "action": "create",
+        "status": "created"
+      },
+      {
+        "action": "claim",
+        "status": "claimed"
+      },
+      {
+        "action": "submit",
+        "status": "invalid-result"
+      },
+      {
+        "action": "claim",
+        "status": "claimed"
+      },
+      {
+        "action": "submit",
+        "status": "paid"
+      },
+      {
+        "action": "create",
+        "status": "created"
+      },
+      {
+        "action": "claim",
+        "status": "claimed"
+      },
+      {
+        "action": "refund",
+        "status": "refunded"
+      }
+    ],
+    "successfulJobs": 1,
+    "rejectedResults": 1,
+    "refundedJobs": 1,
+    "balances": {
+      "customer": "900",
+      "honestWorker": "100",
+      "dishonestWorker": "0"
+    },
+    "totalUnits": "1000",
+    "replayMatches": true,
+    "localScenarioMs": 6.150352000000005
+  },
+  "benchmark": {
+    "warmups": 5,
+    "timingExcludes": [
+      "network",
+      "disk",
+      "consensus",
+      "signatures",
+      "escrow"
+    ],
+    "note": "Small warm in-memory kernels, not end-to-end job throughput; no cheap-proof claim.",
+    "workloads": [
+      {
+        "dimension": 8,
+        "inputBytes": 460,
+        "resultBytes": 337,
+        "worker": {
+          "p50Ms": 0.023615000000006603,
+          "p95Ms": 0.04457699999998965,
+          "samples": 25
+        },
+        "verifier": {
+          "p50Ms": 0.028251999999994837,
+          "p95Ms": 0.05234899999999243,
+          "samples": 25
+        },
+        "verifierToWorkerP50Ratio": 1.1963582468764318
+      },
+      {
+        "dimension": 16,
+        "inputBytes": 1732,
+        "resultBytes": 1383,
+        "worker": {
+          "p50Ms": 0.023345000000006166,
+          "p95Ms": 0.05742599999999243,
+          "samples": 25
+        },
+        "verifier": {
+          "p50Ms": 0.03389100000001122,
+          "p95Ms": 0.27132699999999943,
+          "samples": 25
+        },
+        "verifierToWorkerP50Ratio": 1.451745555793629
+      },
+      {
+        "dimension": 32,
+        "inputBytes": 6816,
+        "resultBytes": 5340,
+        "worker": {
+          "p50Ms": 0.1304760000000016,
+          "p95Ms": 0.23319000000000756,
+          "samples": 25
+        },
+        "verifier": {
+          "p50Ms": 0.14584899999999834,
+          "p95Ms": 0.22611000000000558,
+          "samples": 25
+        },
+        "verifierToWorkerP50Ratio": 1.1178224347772507
+      },
+      {
+        "dimension": 64,
+        "inputBytes": 27145,
+        "resultBytes": 21934,
+        "worker": {
+          "p50Ms": 1.0926220000000058,
+          "p95Ms": 1.2621960000000172,
+          "samples": 25
+        },
+        "verifier": {
+          "p50Ms": 0.7213940000000036,
+          "p95Ms": 0.9742429999999871,
+          "samples": 25
+        },
+        "verifierToWorkerP50Ratio": 0.6602411446959697
+      }
+    ]
+  }
+}
