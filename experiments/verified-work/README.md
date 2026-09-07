@@ -4,6 +4,11 @@ Status: local reference experiment, 7 September 2026. NOT a live blockchain,
 production service, Rust engine, DAG implementation, or cryptographic computation
 proof system. Do not connect it to funds, wallets, a public API, or Planck storage.
 
+Update: the **separate optional [real-proof benchmark](proof/README.md)** now tests
+Groth16 proofs for a fixed 4x4 version of this workload. The baseline commands and
+escrow simulator below still use full recomputation and are unchanged. Proof-based
+payments, consensus integration and production readiness are not implemented.
+
 ## What was built
 
 A customer escrows fictional demo units for one bounded integer-matrix job.

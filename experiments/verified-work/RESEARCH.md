@@ -5,6 +5,11 @@ not an exhaustive novelty/patent search or independent audit of competitor syste
 No competitors' code was incorporated in this experiment. External capabilities
 below are described by their projects, not independently benchmarked here.
 
+Follow-up: [a real-proof benchmark](proof/README.md) now uses pinned external
+cryptographic libraries for a 4x4 circuit. This does not incorporate competitors'
+marketplaces or consensus engines. Its proof-generation and verification overhead
+does not make this tiny task economical; the earlier baseline below is retained.
+
 ## Existing work overlaps substantially
 
 | Project | Relevant existing capability | Consequence for KOREK |

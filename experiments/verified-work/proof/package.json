@@ -1,0 +1,24 @@
+{
+  "name": "korek-isolated-proof-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Experimental real Groth16 proof benchmark; not a deployed KOREK protocol",
+  "scripts": {
+    "setup": "node setup.mjs",
+    "benchmark": "node benchmark.mjs",
+    "test": "node --test --test-concurrency=1 proof-checks.mjs",
+    "verify:example": "node verify-example.mjs"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "circom2": "0.2.23",
+    "circomlib": "2.0.5",
+    "circomlibjs": "0.1.7",
+    "snarkjs": "0.7.6"
+  },
+  "overrides": {
+    "underscore": "1.13.8",
+    "ws": "8.21.3"
+  }
+}

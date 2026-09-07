@@ -1,0 +1,163 @@
+{
+  "version": "korek-real-proof-benchmark/1",
+  "runAt": "2026-09-07T12:19:44.398Z",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpusVisible": 9,
+    "threading": "snarkjs default worker threads; CPU affinity not pinned"
+  },
+  "scope": {
+    "realProof": true,
+    "protocol": "Groth16",
+    "curve": "bn128",
+    "dimension": 4,
+    "setup": "single-operator local test only; no production trust claim",
+    "compiler": "experimental circom2 WASM 0.2.23 / Circom 2.2.3",
+    "publicSignals": 1,
+    "constraints": 3172,
+    "privateInputSignals": 50,
+    "assumptions": "Groth16/BN254, trusted setup, SHA-256 and Poseidon, correct circuit/compiler/verifier",
+    "measurementsExclude": [
+      "network",
+      "blockchain consensus",
+      "disk settlement",
+      "fees",
+      "electricity",
+      "fiat cost"
+    ],
+    "privacyClaim": false,
+    "productionSafe": false,
+    "blockchainTps": null
+  },
+  "initializationMs": 307.815209,
+  "setupMs": 64386.98631,
+  "timing": {
+    "nativeSolve": {
+      "samplesMs": [
+        0.0011154360000000451,
+        0.0005272719999998116,
+        0.00046630099999993036,
+        0.0005424449999995887,
+        0.000476415999999972,
+        0.0005808430000001863,
+        0.00046503800000027693,
+        0.0004635669999997845,
+        0.000704037999999855,
+        0.0005428360000000794
+      ],
+      "count": 10,
+      "p50Ms": 0.0005272719999998116,
+      "maxMs": 0.0011154360000000451
+    },
+    "fullRecomputation": {
+      "samplesMs": [
+        0.001389748000000054,
+        0.0006218440000002374,
+        0.0006139120000002549,
+        0.00088598200000024,
+        0.0006575380000003861,
+        0.0005963959999999133,
+        0.0006513689999997041,
+        0.000618109000000004,
+        0.0005966559999997116,
+        0.0006348040000002584
+      ],
+      "count": 10,
+      "p50Ms": 0.0006218440000002374,
+      "maxMs": 0.001389748000000054
+    },
+    "executionAndProof": {
+      "samplesMs": [
+        617.4306809999999,
+        369.81100400000014,
+        355.66037299999994
+      ],
+      "count": 3,
+      "p50Ms": 369.81100400000014,
+      "maxMs": 617.4306809999999
+    },
+    "rawCryptographicVerification": {
+      "samplesMs": [
+        18.138287999999875,
+        11.944850000000315,
+        10.882764999999836,
+        10.46867199999997,
+        10.062742000000071,
+        11.35955100000001,
+        12.750180999999884,
+        10.077324000000317,
+        10.560268999999607,
+        10.603884999999991
+      ],
+      "count": 10,
+      "p50Ms": 10.603884999999991,
+      "maxMs": 18.138287999999875
+    },
+    "applicationVerification": {
+      "samplesMs": [
+        14.532218000000285,
+        12.16325900000038,
+        12.206144000000222,
+        14.089182999999593,
+        11.850549000000228,
+        11.82142500000009,
+        12.605693999999858,
+        13.928321999999753,
+        11.46339799999987,
+        11.965943000000152
+      ],
+      "count": 10,
+      "p50Ms": 12.16325900000038,
+      "maxMs": 14.532218000000285
+    }
+  },
+  "ratios": {
+    "proofGenerationToNative": 701366.6646439262,
+    "applicationVerificationToRecomputation": 19559.98449771283
+  },
+  "sizes": {
+    "proofJsonBytes": 725,
+    "publicSignalsJsonBytes": 80,
+    "bundleJsonBytes": 967,
+    "expectedJobJsonBytes": 380,
+    "artifacts": {
+      "matrix4.r1cs": {
+        "bytes": 2528800,
+        "sha256": "7ed259483a90d87d6bb75041952b0ec1054eed2b94a8672dc4e9fd73cbdfac38"
+      },
+      "matrix4_js/matrix4.wasm": {
+        "bytes": 4582356,
+        "sha256": "cdbb0d64f5d13269a9d33eeb718fab127b9cf2e1fa35da80cbcdfd547e4c498d"
+      },
+      "matrix4.zkey": {
+        "bytes": 3952057,
+        "sha256": "4259fd21eab3e6ca19613abd293c3268c065f4112dbe02a5a028f9f182fbe64b"
+      },
+      "verification_key.json": {
+        "bytes": 3159,
+        "sha256": "2aca0dddcfcb4af7bc95448c25fb6a5e4066afa439dcab0ce389c4a1cd6f1e2d"
+      }
+    }
+  },
+  "memory": {
+    "maxRssBytes": 469618688,
+    "rssBytesAtEnd": 469618688,
+    "scope": "whole benchmark process including initialization/native loops/prover/verifier; setup runs separately",
+    "setupPeakRssBytes": null
+  },
+  "checks": {
+    "realProofVerified": true,
+    "duplicateAcceptanceRejected": true
+  },
+  "limitations": [
+    "Only three proof samples; timing is indicative, not a throughput capacity test",
+    "Tiny synthetic matrix is not evidence of paid customer demand",
+    "Native solver timing includes consuming one output cell per operation in a checked checksum",
+    "Native verifier timing includes an equality assertion per iteration",
+    "Same operator controls setup; no independent ceremony/security audit",
+    "Replay gate is in memory, does not pay KRK, and is not crash-safe"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "version": "korek-real-proof-benchmark/1",
+  "circuitSha256": "fb17fd54b6de88c5129c65fbc8b5b769e00ea0cc6a43a2c4aa747b41568bab7e",
+  "lockfileSha256": "18da37a28823b72009b1d44f1a6e9e906113a0f4bd8ed7b96e71ebb683679194",
+  "setup": "single-operator local test only; no production trust claim",
+  "power": 12,
+  "setupMs": 64386.98631,
+  "artifacts": {
+    "matrix4.r1cs": {
+      "bytes": 2528800,
+      "sha256": "7ed259483a90d87d6bb75041952b0ec1054eed2b94a8672dc4e9fd73cbdfac38"
+    },
+    "matrix4_js/matrix4.wasm": {
+      "bytes": 4582356,
+      "sha256": "cdbb0d64f5d13269a9d33eeb718fab127b9cf2e1fa35da80cbcdfd547e4c498d"
+    },
+    "matrix4.zkey": {
+      "bytes": 3952057,
+      "sha256": "4259fd21eab3e6ca19613abd293c3268c065f4112dbe02a5a028f9f182fbe64b"
+    },
+    "verification_key.json": {
+      "bytes": 3159,
+      "sha256": "2aca0dddcfcb4af7bc95448c25fb6a5e4066afa439dcab0ce389c4a1cd6f1e2d"
+    }
+  }
+}

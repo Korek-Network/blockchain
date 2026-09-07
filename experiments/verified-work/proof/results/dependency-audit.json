@@ -1,0 +1,23 @@
+{
+  "checkedDate": "2026-09-07",
+  "command": "npm audit --omit=dev --json",
+  "vulnerablePackageEntries": {
+    "info": 0,
+    "low": 15,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 15
+  },
+  "remainingRootAdvisory": {
+    "package": "elliptic",
+    "version": "6.6.1",
+    "via": "circomlibjs -> ethers -> @ethersproject/signing-key",
+    "url": "https://github.com/advisories/GHSA-848j-6mx2-7j84"
+  },
+  "patchedTransitiveVersions": {
+    "underscore": "1.13.8",
+    "ws": "8.21.3"
+  },
+  "note": "Fifteen package entries trace to one remaining root advisory. This is not a clean security audit or production clearance. A forced breaking downgrade of circomlibjs was not applied."
+}
