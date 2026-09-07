@@ -10,6 +10,7 @@
     "key": "node scripts/key.mjs --scheme wormhole",
     "node:key": "node scripts/node-key.mjs",
     "version": "node src/server.js --version",
+    "benchmark": "node scripts/benchmark.mjs",
     "test": "node -e \"const{spawnSync}=require('node:child_process');const result=spawnSync(process.execPath,['--test'],{stdio:'inherit',env:{...process.env,KOREK_DIFFICULTY:'3'}});process.exit(result.status??1)\""
   },
   "engines": { "node": ">=22" },

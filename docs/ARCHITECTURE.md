@@ -35,3 +35,7 @@ At the initial subsidy, the miner receives 47.5 KRK plus fees and the treasury r
 - Wallet and node releases need reproducible signing and independent security audit.
 - Treasury keys and governance must be public, multisignature and established before mainnet.
 - Performance claims require reproducible workloads, hardware definitions and finality measurements.
+
+## Reproducible local benchmark
+
+Run `npm run benchmark` to measure signed transaction admission, verified snapshot restoration and block hashing on the current machine. The command prints JSON containing the workload, runtime, CPU model and results. Workload sizes can be changed with `KOREK_BENCH_TX` and `KOREK_BENCH_HASHES`; published comparisons must use identical values and include the complete JSON output.
