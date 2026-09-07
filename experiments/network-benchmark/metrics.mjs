@@ -15,7 +15,8 @@ export function wallet() {
 export function transfer(sender, recipient, timestamp, amount = "1") {
   const tx = { version: 3, from: sender.address, to: recipient, amount, timestamp,
     gasPrice: "1", gasLimit: "21000", addressScheme: "wormhole-v1", publicKey: sender.publicKey };
-  const message = `${tx.from}|${tx.to}|${tx.amount}|${tx.timestamp}|1|21000|wormhole-v1`;
+  if(process.env.KOREK_NETWORK_ID){tx.version=4;tx.networkId=process.env.KOREK_NETWORK_ID;}
+  const message = (tx.version===4?`korek-transfer-v4|${tx.networkId}|`:"")+`${tx.from}|${tx.to}|${tx.amount}|${tx.timestamp}|1|21000|wormhole-v1`;
   tx.signature = cryptoProvider.sign(message, sender.privateKey);
   return { tx, id: sha256(message + tx.signature) };
 }

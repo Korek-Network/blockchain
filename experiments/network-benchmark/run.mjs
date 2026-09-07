@@ -13,8 +13,10 @@ import { miningRequestMessage, miningSubmissionMessage, powDigest, meetsDifficul
 import { wallet, transfer, commonPlacement, phaseMetrics } from "./metrics.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url)), repository = join(root, "../..");
+const fresh=process.argv.includes("--fresh");
+if(fresh)process.env.KOREK_NETWORK_ID="korek-planck-testnet-2";
 const smoke = process.argv.includes("--smoke"), fixed = process.argv.includes("--fixed");
-if (process.argv.slice(2).some(x => !["--smoke", "--fixed"].includes(x))) throw new Error("Only --smoke and --fixed are supported; no external endpoint mode");
+if (process.argv.slice(2).some(x => !["--smoke", "--fixed", "--fresh"].includes(x))) throw new Error("Only --smoke and --fixed are supported; no external endpoint mode");
 const profile = { durationMs: smoke ? 1000 : 6000, offeredRates: smoke ? [10, 25] : [10, 50, 100],
   maxInFlight: 16, observerIntervalMs: 200, replicationTimeoutMs: 20000, peerSyncIntervalMs: 2000,
   difficulty: 3, rewardBlockTimeMs: 250, failureBatchSize: smoke ? 4 : 24 };
@@ -45,7 +47,7 @@ const report = { version: fixed ? "korek-local-multinode-benchmark/4" : "korek-l
   environment: { node: process.version, platform: platform(), arch: arch(), cpu: cpus()[0]?.model, logicalCpus: cpus().length },
   sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim(),
   sourceSha256: {}, scope: { realServerProcesses: 3, transport: "loopback HTTP, same host", signedTransactions: true,
-    signature: "Ed25519, version 3 wormhole-v1 address scheme", ingress: "one funded sender, one recipient, fixed fee, sequentially scheduled requests",
+    networkId:process.env.KOREK_NETWORK_ID||"korek-planck-testnet-1", signature: fresh?"Ed25519 version 4 network-bound":"Ed25519, version 3 wormhole-v1 address scheme", ingress: "one funded sender, one recipient, fixed fee, sequentially scheduled requests",
     funding: "real lab PoW reward to sender; no faucet or live funds", computeMvp: false,
     labOverrides: "difficulty 3 and reward interval 250ms versus source defaults 7 and 60000ms; default 2000ms P2P polling retained",
     instrumentation: "method timings, loopback-only listener shim, IPC peer configuration; production handlers and fork choice unchanged",
@@ -79,6 +81,7 @@ async function control(node, command, extra = {}) {
 async function start(node) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("KOREK_") && !["NODE_OPTIONS", "NODE_PATH"].includes(key)));
   Object.assign(env, { KOREK_PORT: "0", KOREK_COMPUTE_MVP: "0", KOREK_MINE: "0", KOREK_DIFFICULTY: "3", KOREK_BLOCK_TIME_MS: "250" });
+  if(fresh){env.KOREK_NETWORK_ID="korek-planck-testnet-2";if(node.label==="A")env.KOREK_FAUCET_KEY_FILE=join(node.directory,"faucet.json");}
   node.pending = new Map(); node.view = new Map(); node.blocks = new Map(); node.logs = "";
   const child = fork(join(root, "child.mjs"), [node.directory, node.label], { env, execArgv: [], stdio: ["ignore", "pipe", "pipe", "ipc"] });
   node.process = child;
@@ -115,6 +118,7 @@ async function makeNode(label) {
   node.peerId = sha(publicKey);
   await writeFile(join(node.directory, "node-key.json"), JSON.stringify({ format: "korek-node-key", version: 1,
     peerId: node.peerId, publicKey, privateKey: keys.privateKey.export({ type: "pkcs8", format: "pem" }) }), { mode: 0o600 });
+  if(fresh&&label==="A")await writeFile(join(node.directory,"faucet.json"),JSON.stringify(sender),{mode:0o600});
   nodes.push(node); await start(node); return node;
 }
 async function stop(node, signal = "SIGTERM") {
@@ -350,6 +354,16 @@ try {
     height: states[0].chain.length-1, uniqueTransfers: finalIds.size, cumulativeWork: finalChain.cumulativeWork().toString(),
     acknowledgedTotal: acknowledged.length, acknowledgedButAbsent: missing,
     powerLossDurabilityTested: false, nodeFailuresOccurredAfterPriorPhaseAcknowledgments: true };
+  if(fresh){
+    for(const node of nodes)await start(node);await wire(nodes);
+    const address=wallet().address,claim=await ok(a,"/api/faucet",{address});
+    assert.equal(claim.status,"included");assert.equal(claim.finalized,false);
+    const tip=(await snapshot(a)).chain.at(-1).hash;assert.equal(await waitTip(tip),true);
+    for(const node of nodes){const state=await snapshot(node);const checked=KorekChain.fromSnapshot(state,{peer:true});assert.equal(checked.balance(address),"100000000");assert.equal(checked.testnetFaucetSupply,0n);}
+    await stop(a,"SIGKILL");await start(a);await wire(nodes);
+    assert.equal((await request(a,"/api/faucet",{address})).status,400);
+    report.faucetRehearsal={replicatedOnThreeNodes:true,restartCooldownEnforced:true,noNewSupply:true,transactionId:claim.transactionId};
+  }
   report.completed = true;
 } catch (error) {
   report.completed = false; report.failure = { message: error.message, stack: error.stack };

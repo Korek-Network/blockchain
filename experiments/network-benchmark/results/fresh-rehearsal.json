@@ -1,0 +1,108 @@
+{
+  "completed": true,
+  "runAt": "2026-09-07T15:25:25.126Z",
+  "profile": {
+    "durationMs": 1000,
+    "offeredRates": [
+      10,
+      25
+    ],
+    "maxInFlight": 16,
+    "observerIntervalMs": 200,
+    "replicationTimeoutMs": 20000,
+    "peerSyncIntervalMs": 2000,
+    "difficulty": 3,
+    "rewardBlockTimeMs": 250,
+    "failureBatchSize": 4
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 9
+  },
+  "scope": {
+    "realServerProcesses": 3,
+    "transport": "loopback HTTP, same host",
+    "signedTransactions": true,
+    "networkId": "korek-planck-testnet-2",
+    "signature": "Ed25519 version 4 network-bound",
+    "ingress": "one funded sender, one recipient, fixed fee, sequentially scheduled requests",
+    "funding": "real lab PoW reward to sender; no faucet or live funds",
+    "computeMvp": false,
+    "labOverrides": "difficulty 3 and reward interval 250ms versus source defaults 7 and 60000ms; default 2000ms P2P polling retained",
+    "instrumentation": "method timings, loopback-only listener shim, IPC peer configuration; production handlers and fork choice unchanged",
+    "persistence": "SQLite rollback transactions, EXTRA synchronization and 5-ms save grouping; hardware power loss not tested",
+    "finalityClaim": false,
+    "publicTestnetCapacityClaim": false,
+    "nodeProtocol": "korek-planck-p2p/4",
+    "fixedSemantics": true
+  },
+  "sourceSha256": {
+    "server.js": "b134177c5748efd4c423d42566aff3d5a87de09b278f5246920d93731ec67a96",
+    "blockchain.js": "9e571930a9df6ff6c6c130491034c9c5ef13ab3fc7e927989add0e7d9a7c351a",
+    "p2p.js": "410efcbde12b686dad70bcbc9c5775d07d97673e71234103d1ff981b0446b0e3",
+    "storage.js": "5a2425cd45c80ae8737c7055f2ddea0d79922c1b486e9eee4d157f4b522f1e7d",
+    "config.js": "65329eb613826ddb3f1ef5e3b4865747881e05975190a3939f08352e43e11cfc",
+    "crypto.js": "a5b8b3cc9f7a74aa9551cc049ed3a950ea2dc5965b41e11a7473a7fe8bf9f6a5",
+    "mining-protocol.js": "4de10acf429072711962c5832e6909bec7f6bf7c94d1d0acaed3700c59663ff6",
+    "protocol.js": "e4aa69229b2d8af29628335e11533f32e28a55e2c10436db055e6f7706ad1704",
+    "confirmation.js": "56f1b46b74332f24c883a3c82e7779841cb6616314c9b9d40ec6d53e6fc145fe",
+    "chain-selection.js": "ee614df10f9be527d54295e9b423a3fd883ccbbb65c058274c931026df48c1f0",
+    "ledger-replay.js": "e920a73089f1992aef014d8e7e0cd575cc862cf07c0ca57437092eb4f621bd1b",
+    "legacy-storage.js": "e4968710f48d5f4ca2cd5b8d29ebba9e630f900d71b7fadcddc1fbeb4220c04d"
+  },
+  "benchmarkSourceSha256": {
+    "run.mjs": "9534a5025abc3cc4960c7ff82284c2a7951697ea483d970b3579869c68a5f75c",
+    "child.mjs": "3fc4422bfa03e9f1836ecf491b394ab6361c9ebbaf8c5d220969138992bcae5f",
+    "metrics.mjs": "56346b4c074e6e24b4f78abfcf1245e7587a8136fa6bf6a8d4bbfd40fc0771c9"
+  },
+  "finalState": {
+    "consistentAcrossNodes": true,
+    "restoredSnapshotsMatch": true,
+    "exactTransferBalancesMatched": true,
+    "height": 53,
+    "uniqueTransfers": 50,
+    "cumulativeWork": "12288",
+    "acknowledgedTotal": 51,
+    "acknowledgedButAbsent": [
+      "53cfb4737d5f87d026efa5ad9a1720a7c5196227b4bfbc34a0bb30ba44357be5"
+    ],
+    "powerLossDurabilityTested": false,
+    "nodeFailuresOccurredAfterPriorPhaseAcknowledgments": true
+  },
+  "faucetRehearsal": {
+    "replicatedOnThreeNodes": true,
+    "restartCooldownEnforced": true,
+    "noNewSupply": true,
+    "transactionId": "b171c8f22a4a93ba8d3ef0c37515370a060bf980820796c4943cfa7f0b9da9fa"
+  },
+  "followerRecovery": {
+    "signal": "SIGKILL",
+    "offlineNode": "C",
+    "acknowledgedWhileOffline": 4,
+    "recoveredAll": true,
+    "restartToObservedRecoveryMs": 2162.9731379999994,
+    "reconnect": "driver rewires new ephemeral addresses"
+  },
+  "ingressRecovery": {
+    "signal": "SIGKILL",
+    "failedNode": "A",
+    "manualSubmissionNode": "B",
+    "recoveredAll": true,
+    "restartToObservedRecoveryMs": 2192.9758809999985,
+    "automaticFailoverClaim": false
+  },
+  "limitations": [
+    "Single same-host run; finite offered-rate windows and a small growing chain, not a sustainable capacity estimate",
+    "Closed maximum-in-flight cap can throttle the offered schedule; recorded lateness must be inspected",
+    "Driver polling, timing wrappers and three server processes compete on the same CPU/disk",
+    "All-node observation is sampled, not exact arrival time, economic finality, or Byzantine consensus",
+    "Rate-sweep transfer blocks add zero work but extend a real PoW-funded chain",
+    "Crash tests stop owned processes after acknowledgments; no power loss, corrupt disk or mid-write fault injection",
+    "No WAN, geographic decentralization, adversarial validator quorum, long-duration saturation, or public-testnet TPS measurement"
+  ],
+  "totalMs": 33273.344592,
+  "note": "finalState is measured before the additional faucet payout; faucetRehearsal reports the subsequent stage. Source commit is identified by prior branch plus per-file hashes."
+}
