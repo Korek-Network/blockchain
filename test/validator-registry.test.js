@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { KorekChain } from "../src/blockchain.js";
 import { cryptoProvider,sha256 } from "../src/crypto.js";
+import { NETWORK } from "../src/config.js";
 import {
- ComputeValidatorRegistry,COMPUTE_VALIDATOR_MIN_STAKE,COMPUTE_VALIDATOR_EXIT_DELAY_MS,COMPUTE_VALIDATOR_SET_SIZE,COMPUTE_VALIDATOR_THRESHOLD,COMPUTE_VALIDATOR_SELECTION_VERSION,
+ ComputeValidatorRegistry,COMPUTE_VALIDATOR_MIN_STAKE,COMPUTE_VALIDATOR_EXIT_DELAY_MS,COMPUTE_VALIDATOR_SET_SIZE,COMPUTE_VALIDATOR_THRESHOLD,COMPUTE_VALIDATOR_SELECTION_VERSION,COMPUTE_VALIDATOR_FRAUD_SLASH_BPS,
  validatorRegisterMessage,validatorExitMessage,validatorWithdrawMessage,
 } from "../src/validator-registry.js";
 
@@ -36,11 +37,18 @@ test("exiting validator waits 24 hours and cannot withdraw while assigned",()=>{
  registry.finalizeJob(jobId,[],null);const before=BigInt(chain.balance(wallet.address)),withdrawn=registry.withdraw(signed(wallet,validatorWithdrawMessage(due),due),due.timestamp);assert.equal(withdrawn.status,"withdrawn");assert.equal(BigInt(chain.balance(wallet.address)),before+COMPUTE_VALIDATOR_MIN_STAKE);
 });
 
+test("proven fraud slashes 10%, credits treasury, jails an under-minimum validator and cannot slash twice",()=>{
+ const chain=new KorekChain(),registry=new ComputeValidatorRegistry(chain),now=3_350_000_000_000,validators=Array.from({length:5},()=>cryptoProvider.createWallet());validators.forEach((wallet,index)=>fundAndRegister(chain,registry,wallet,now+index));const jobId="44".repeat(32),selection=registry.select({jobId,creator:cryptoProvider.createWallet().address,tipHash:"55".repeat(32),entropy:"66".repeat(32)}),target=selection.validators[0],wallet=validators.find(item=>item.address===target),proofHash="77".repeat(32),treasuryBefore=BigInt(chain.balance(NETWORK.treasuryAddress)),receipts=registry.slashForFraud(jobId,[target],proofHash,now+100),expected=COMPUTE_VALIDATOR_MIN_STAKE*COMPUTE_VALIDATOR_FRAUD_SLASH_BPS/10_000n;
+ assert.equal(receipts.length,1);assert.equal(BigInt(receipts[0].amount),expected);assert.equal(receipts[0].status,"jailed");assert.equal(BigInt(registry.validator(target).stake),COMPUTE_VALIDATOR_MIN_STAKE-expected);assert.equal(registry.validator(target).fraudProofs,1);assert.equal(BigInt(chain.balance(NETWORK.treasuryAddress)),treasuryBefore+expected);assert.equal(registry.stats().active,4);
+ assert.deepEqual(registry.slashForFraud(jobId,[target],proofHash,now+101),[]);assert.equal(registry.validator(target).fraudProofs,1);
+ const exitFields={validator:wallet.address,addressScheme:"transparent-v1",timestamp:now+102};assert.equal(registry.requestExit(signed(wallet,validatorExitMessage(exitFields),exitFields),now+102).status,"exiting");registry.finalizeJob(jobId,[],null);const due={validator:wallet.address,addressScheme:"transparent-v1",timestamp:now+102+COMPUTE_VALIDATOR_EXIT_DELAY_MS},before=BigInt(chain.balance(wallet.address)),withdrawn=registry.withdraw(signed(wallet,validatorWithdrawMessage(due),due),due.timestamp);assert.equal(BigInt(chain.balance(wallet.address)),before+BigInt(withdrawn.stake||0));
+});
+
 test("validator reputation records actual disagreements but not validators locked out after threshold",()=>{
  const chain=new KorekChain(),registry=new ComputeValidatorRegistry(chain),now=3_400_000_000_000,validators=Array.from({length:5},()=>cryptoProvider.createWallet());validators.forEach((wallet,index)=>fundAndRegister(chain,registry,wallet,now+index));const jobId="78".repeat(32),selection=registry.select({jobId,creator:cryptoProvider.createWallet().address,tipHash:"9a".repeat(32),entropy:"bc".repeat(32)}),votes=[{verifier:selection.validators[0],approve:true},{verifier:selection.validators[1],approve:true},{verifier:selection.validators[2],approve:false}];registry.finalizeJob(jobId,votes,"accepted");
  const agree=registry.validator(selection.validators[0]),disagree=registry.validator(selection.validators[2]),noVote=registry.validator(selection.validators[4]);assert.equal(agree.completedVotes,1);assert.equal(agree.disagreementVotes,0);assert.equal(disagree.completedVotes,1);assert.equal(disagree.disagreementVotes,1);assert.equal(noVote.completedVotes,0);assert.equal(noVote.disagreementVotes,0);assert.equal(noVote.missedVotes,0);
 });
 
-test("registry snapshot preserves locked stake and active assignments",()=>{
- const chain=new KorekChain(),registry=new ComputeValidatorRegistry(chain),now=3_500_000_000_000,validators=Array.from({length:5},()=>cryptoProvider.createWallet());validators.forEach((wallet,index)=>fundAndRegister(chain,registry,wallet,now+index));const jobId="de".repeat(32),selection=registry.select({jobId,creator:cryptoProvider.createWallet().address,tipHash:"ad".repeat(32),entropy:"be".repeat(32)}),restored=new ComputeValidatorRegistry(chain,registry.snapshot());assert.equal(restored.stats().active,5);assert.equal(restored.stats().lockedStake,(COMPUTE_VALIDATOR_MIN_STAKE*5n).toString());selection.validators.forEach(address=>assert.equal(restored.isAssigned(jobId,address),true));
+test("registry snapshot preserves locked stake, slashing history and active assignments",()=>{
+ const chain=new KorekChain(),registry=new ComputeValidatorRegistry(chain),now=3_500_000_000_000,validators=Array.from({length:5},()=>cryptoProvider.createWallet());validators.forEach((wallet,index)=>fundAndRegister(chain,registry,wallet,now+index));const jobId="de".repeat(32),selection=registry.select({jobId,creator:cryptoProvider.createWallet().address,tipHash:"ad".repeat(32),entropy:"be".repeat(32)});registry.slashForFraud(jobId,[selection.validators[0]],"fa".repeat(32),now+100);const restored=new ComputeValidatorRegistry(chain,registry.snapshot());assert.equal(restored.stats().active,4);assert.ok(BigInt(restored.stats().slashedStake)>0n);selection.validators.forEach(address=>assert.equal(restored.isAssigned(jobId,address),true));
 });
