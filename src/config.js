@@ -1,5 +1,5 @@
 export const NETWORK=Object.freeze({
- name:"KOREK",symbol:"KRK",networkId:"korek-planck-testnet-1",decimals:8,
+ name:"KOREK",symbol:"KRK",networkId:process.env.KOREK_NETWORK_ID||"korek-planck-testnet-1",decimals:8,
  maxSupply:210_000_000n*100_000_000n,miningAllocation:210_000_000n*100_000_000n,
  genesisPremine:0n,minerShareBps:9_500n,treasuryShareBps:500n,
  treasuryAddress:"krk1d1ee0261919684cf511b9bd702697b5c4816c61e",

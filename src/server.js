@@ -15,6 +15,7 @@ import { createTemplate,verifySubmission,verifyWorkRequest } from "./mining-prot
 import { P2PNetwork } from "./p2p.js";
 import { CHAIN_NAME,MINER_PROTOCOL,NODE_PROTOCOL,NODE_VERSION } from "./protocol.js";
 import { StateStore } from "./storage.js";
+import { FundedFaucet } from "./funded-faucet.js";
 
 const arg=name=>{const prefix=`--${name}=`;const inline=process.argv.find(value=>value.startsWith(prefix));if(inline)return inline.slice(prefix.length);const at=process.argv.indexOf(`--${name}`);return at>=0?process.argv[at+1]:undefined};
 const args=name=>{const values=[];for(let index=0;index<process.argv.length;index++){const value=process.argv[index],prefix=`--${name}=`;if(value.startsWith(prefix))values.push(value.slice(prefix.length));else if(value===`--${name}`&&process.argv[index+1])values.push(process.argv[++index])}return values};
@@ -36,7 +37,8 @@ if(nodeKeyFile){nodeKey=JSON.parse(await readFile(nodeKeyFile,"utf8"));if(nodeKe
 const sourceRoot=fileURLToPath(new URL("../public/",import.meta.url)),binaryRoot=join(dirname(process.execPath),"public"),root=process.versions.bun&&existsSync(binaryRoot)?binaryRoot:sourceRoot;
 const dataDirectory=arg("data-dir")||process.env.KOREK_DATA_DIR||join(process.cwd(),".korek",chainName),stateStore=new StateStore(dataDirectory),savedState=await stateStore.load();
 const savedBundle=[1,2].includes(savedState?.bundleVersion)&&savedState.networkId===NETWORK.networkId?savedState:null;
-let chain=savedBundle?KorekChain.fromSnapshot(savedBundle.chain):savedState?KorekChain.fromSnapshot(savedState,{peer:p2pRequested}):new KorekChain();
+let chain=savedBundle?KorekChain.fromSnapshot(savedBundle.chain,{peer:p2pRequested}):savedState?KorekChain.fromSnapshot(savedState,{peer:p2pRequested}):new KorekChain();
+const fundedFaucet=process.env.KOREK_FAUCET_KEY_FILE?new FundedFaucet(JSON.parse(await readFile(process.env.KOREK_FAUCET_KEY_FILE,"utf8"))):null;
 let preservedCompute=savedBundle?.compute||null,preservedValidators=savedBundle?.validators||null;
 if(p2pRequested&&(preservedCompute||preservedValidators))throw new Error("Persisted useful-compute state is single-node only; P2P must remain disabled until compute consensus support is implemented");
 const validatorRegistry=computeEnabled?new ComputeValidatorRegistry(chain,preservedValidators):null;
@@ -73,7 +75,7 @@ const apiServer=createServer(async(req,res)=>{try{const url=new URL(req.url,`htt
  if(req.method==="POST"&&url.pathname==="/miner/v3/submit")return json(res,201,await submitWork(await body(req)),true);
  if(req.method==="POST"&&url.pathname==="/api/wallet"){const wallet=cryptoProvider.createWallet();res.setHeader("cache-control","no-store");return json(res,201,wallet,true)}
  if(req.method==="POST"&&url.pathname==="/api/transactions"){const tx=chain.addTransaction(await body(req));chain.sealPending();await saveNodeState();const observed=chain.transaction(tx.id);return observed?json(res,201,observed,true):json(res,409,{id:tx.id,status:"reorganized",finalized:false,error:"Transaction left the selected chain before acknowledgment"},true)}
- if(req.method==="POST"&&url.pathname==="/api/faucet"){if(p2pRequested)throw new Error("Faucet is single-node only; network balances must originate in verified PoW");const input=await body(req),claim=chain.claimFaucet(input.address);await saveNodeState();return json(res,201,claim,true)}
+ if(req.method==="POST"&&url.pathname==="/api/faucet"){if(!fundedFaucet)throw new Error("Faucet disabled; configure a funded faucet wallet");const input=await body(req),tx=fundedFaucet.claim(chain,input.address);chain.sealPending();await saveNodeState();const selected=chain.chain.some(block=>block.transactions.some(item=>item.id===tx.id));if(!selected)return json(res,409,{error:"Faucet transfer left the selected chain",transactionId:tx.id},true);return json(res,201,{address:input.address,amount:tx.amount,transactionId:tx.id,status:"included",finalized:false,nextClaimAt:tx.timestamp+fundedFaucet.cooldownMs},true)}
  if(req.method==="GET"&&url.pathname==="/api/compute/status")return json(res,200,computeStatus(),true);
  if(req.method==="GET"&&url.pathname==="/api/compute/validators"){requireCompute();return json(res,200,validatorRegistry.list({status:url.searchParams.get("status"),limit:url.searchParams.get("limit")||100}),true)}
  if(req.method==="POST"&&url.pathname==="/api/compute/validators/register"){const input=await body(req),entry=await persistCompute(()=>validatorRegistry.register(input));return json(res,201,entry,true)}
