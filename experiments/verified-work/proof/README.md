@@ -8,6 +8,10 @@ mock receipts or development-mode attestations. It uses the same bounded integer
 matrix multiplication as the parent demo, restricted to 4x4 matrices. No Rust/DAG
 engine, network consensus, real payments or wallet integration is added.
 
+Follow-up: the [128-record analytics proof](analytics/README.md) tests a useful
+batch-statistics function with 72 times as many multiplications. It also shows no
+compute-time advantage at the measured size. Both remain isolated experiments.
+
 ## Recorded result — 7 September 2026
 
 | Measurement | Recorded value |

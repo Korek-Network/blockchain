@@ -1,0 +1,209 @@
+{
+  "version": "korek-sensor-statistics-proof/1",
+  "runAt": "2026-09-07T12:40:00.352Z",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpusVisible": 9,
+    "threading": "snarkjs default workers; no affinity pinning"
+  },
+  "scope": {
+    "protocol": "Groth16",
+    "curve": "bn128",
+    "realProof": true,
+    "rows": 128,
+    "channels": 8,
+    "signedInputBits": 16,
+    "crossProductsPerJob": 4608,
+    "outputStatistics": 44,
+    "constraints": 28703,
+    "dataset": "deterministic generated sensor records, not customer data",
+    "usefulFunction": "exact channel sums and upper-triangular cross-products for covariance analytics",
+    "trustBoundary": "customer/publisher supplies the expected ordered-batch root before work; sensor truth and completeness are external",
+    "setup": "single-operator local test only; no production trust claim",
+    "productionSafe": false,
+    "blockchainTps": null,
+    "excluded": [
+      "network/consensus",
+      "input source authentication",
+      "storage/settlement",
+      "fees/electricity/fiat cost",
+      "privacy audit"
+    ]
+  },
+  "initializationMs": 362.18577500000004,
+  "setupMs": 261916.555239,
+  "timing": {
+    "datasetCommitmentPreparation": {
+      "samplesMs": [
+        7.624209000000064,
+        5.983414000000039,
+        6.91998000000001,
+        5.134997999999996,
+        4.702187999999978,
+        4.686874999999986,
+        4.9180619999999635,
+        10.10917900000004,
+        4.534024999999929,
+        4.374225000000024
+      ],
+      "count": 10,
+      "p50Ms": 4.9180619999999635,
+      "maxMs": 10.10917900000004
+    },
+    "directTrustedDataRecheck": {
+      "samplesMs": [
+        0.026209899999994377,
+        0.037589490000000295,
+        0.02855881999999838,
+        0.02430782999999792,
+        0.02469742000000224,
+        0.03056553999999778,
+        0.02570152999999664,
+        0.024023400000005496,
+        0.025591660000000047,
+        0.025101529999992635
+      ],
+      "count": 10,
+      "p50Ms": 0.025591660000000047,
+      "maxMs": 0.037589490000000295
+    },
+    "authenticatedDataAndRecheck": {
+      "samplesMs": [
+        4.872613999999885,
+        4.59928200000013,
+        5.821990999999798,
+        4.5390419999994265,
+        4.785111000000143,
+        4.7229779999997845,
+        4.62074500000017,
+        4.434704999999667,
+        4.660385000000133,
+        4.473332999999911
+      ],
+      "count": 10,
+      "p50Ms": 4.62074500000017,
+      "maxMs": 5.821990999999798
+    },
+    "executionAndProof": {
+      "samplesMs": [
+        1771.7777660000002,
+        1456.7978779999999,
+        1486.1457929999997
+      ],
+      "count": 3,
+      "p50Ms": 1486.1457929999997,
+      "maxMs": 1771.7777660000002
+    },
+    "applicationProofVerification": {
+      "samplesMs": [
+        13.599789999999302,
+        13.407070000000203,
+        16.617519999999786,
+        17.830574000000524,
+        15.049279000000752,
+        14.34782499999983,
+        13.838829999999689,
+        14.924872000000505,
+        14.239741999999751,
+        14.490378000000419
+      ],
+      "count": 10,
+      "p50Ms": 14.34782499999983,
+      "maxMs": 17.830574000000524
+    }
+  },
+  "ratios": {
+    "proofVerificationToTrustedRecheck": 560.6445615485593,
+    "proofVerificationToAuthenticatedRecheck": 3.1050891144175456,
+    "proofGenerationToNativeRecheck": 58071.48864122128
+  },
+  "wallTimeProxy": {
+    "model": "P + N*V versus D + N*D; same fixed job and hardware, not an economic or TPS forecast",
+    "sharedRootPreparationExcludedFromBoth": true,
+    "breakEvenVerifierCountTrustedData": null,
+    "breakEvenVerifierCountAuthenticatedData": null,
+    "nullMeaning": "no break-even at any verifier count when per-proof verification is already slower than this direct recheck",
+    "examples": [
+      {
+        "verifiers": 1,
+        "proofPathMs": 1500.4936179999995,
+        "trustedDirectPathMs": 0.051183320000000095,
+        "authenticatedDirectPathMs": 9.24149000000034
+      },
+      {
+        "verifiers": 10,
+        "proofPathMs": 1629.624042999998,
+        "trustedDirectPathMs": 0.2815082600000005,
+        "authenticatedDirectPathMs": 50.82819500000187
+      },
+      {
+        "verifiers": 100,
+        "proofPathMs": 2920.9282929999827,
+        "trustedDirectPathMs": 2.5847576600000046,
+        "authenticatedDirectPathMs": 466.69524500001717
+      },
+      {
+        "verifiers": 1000,
+        "proofPathMs": 15833.97079299983,
+        "trustedDirectPathMs": 25.617251660000047,
+        "authenticatedDirectPathMs": 4625.36574500017
+      }
+    ]
+  },
+  "sizes": {
+    "inputJsonBytes": 6555,
+    "expectedJobJsonBytes": 317,
+    "proofJsonBytes": 723,
+    "bundleJsonBytes": 1380,
+    "resultJsonBytes": 496,
+    "artifacts": {
+      "statistics.r1cs": {
+        "bytes": 12702580,
+        "sha256": "5bd68998a2f17dcc6dde7cda6d9c80a789a862528d969241efdfcb09f8e3f244"
+      },
+      "statistics_js/statistics.wasm": {
+        "bytes": 6304233,
+        "sha256": "35c83415bfa8c8271aba1ec74e924061b4407e67c8013d1c2d2d3476971f54f7"
+      },
+      "statistics.zkey": {
+        "bytes": 24548125,
+        "sha256": "166dda90e49c4fefdfdedd50d4a81689448723b780fec8808f8aa9c3f2efaf89"
+      },
+      "verification_key.json": {
+        "bytes": 3155,
+        "sha256": "8fb5698fde223881c41ce7ebc1284b4460807ae18e313304fde6bb6cb817b582"
+      }
+    }
+  },
+  "memory": {
+    "benchmarkMaxRssBytes": 1074393088,
+    "rssBytesAtEnd": 909660160,
+    "setupMainProcessPeakRssBytes": 1129402368,
+    "scope": "whole benchmark process with workers; setup metric excludes the separately spawned compiler"
+  },
+  "checks": {
+    "realProofVerified": true,
+    "independentBigIntOracleMatched": true
+  },
+  "example": {
+    "firstChannelMean": {
+      "numerator": 34512,
+      "denominator": 128
+    },
+    "firstChannelPopulationVariance": {
+      "numerator": 5466691351552,
+      "denominator": 16384
+    }
+  },
+  "limitations": [
+    "One fixed 128x8 size, three proof samples and ten verifier samples; no extrapolated crossover claims",
+    "Warmed JIT native rechecks inspect every output; an optimized native implementation could be faster",
+    "Data commitment is not proof of honest sensors, data availability, or inclusion of all relevant records",
+    "Standalone stateless proof verifier does not enforce deadlines, prevent replay or pay anyone",
+    "Experimental compiler and single-operator setup; inherited dependency advisories remain",
+    "No demonstrated customer demand, money savings, throughput gain, decentralization or production security"
+  ]
+}

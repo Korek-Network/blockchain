@@ -1,0 +1,28 @@
+{
+  "version": "korek-sensor-statistics-proof/1",
+  "constraints": 28703,
+  "power": 15,
+  "circuitSha256": "74f16b4402452bf09473373cd52f753204a8aac6715d7646dc47db0897a8d428",
+  "lockfileSha256": "18da37a28823b72009b1d44f1a6e9e906113a0f4bd8ed7b96e71ebb683679194",
+  "setup": "single-operator local test only; no production trust claim",
+  "setupMs": 261916.555239,
+  "setupPeakRssBytes": 1129402368,
+  "artifacts": {
+    "statistics.r1cs": {
+      "bytes": 12702580,
+      "sha256": "5bd68998a2f17dcc6dde7cda6d9c80a789a862528d969241efdfcb09f8e3f244"
+    },
+    "statistics_js/statistics.wasm": {
+      "bytes": 6304233,
+      "sha256": "35c83415bfa8c8271aba1ec74e924061b4407e67c8013d1c2d2d3476971f54f7"
+    },
+    "statistics.zkey": {
+      "bytes": 24548125,
+      "sha256": "166dda90e49c4fefdfdedd50d4a81689448723b780fec8808f8aa9c3f2efaf89"
+    },
+    "verification_key.json": {
+      "bytes": 3155,
+      "sha256": "8fb5698fde223881c41ce7ebc1284b4460807ae18e313304fde6bb6cb817b582"
+    }
+  }
+}
