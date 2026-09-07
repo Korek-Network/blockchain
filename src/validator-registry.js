@@ -46,7 +46,7 @@ export class ComputeValidatorRegistry{
  }
  isAssigned(jobId,validator){return this.validators.get(String(validator||"").toLowerCase())?.assignedJobs.has(jobId)||false}
  finalizeJob(jobId,votes=[],outcome=null){
-  const byAddress=new Map((votes||[]).map(vote=>[String(vote.verifier||"").toLowerCase(),vote]));for(const entry of this.validators.values()){if(!entry.assignedJobs.has(jobId))continue;const vote=byAddress.get(entry.validator);if(outcome&&vote){entry.completedVotes++;const agrees=outcome==="accepted"?Boolean(vote.approve):!Boolean(vote.approve);if(!agrees)entry.disagreementVotes++}else if(outcome&&!vote)entry.missedVotes++;entry.assignedJobs.delete(jobId)}
+  const byAddress=new Map((votes||[]).map(vote=>[String(vote.verifier||"").toLowerCase(),vote]));for(const entry of this.validators.values()){if(!entry.assignedJobs.has(jobId))continue;const vote=byAddress.get(entry.validator);if(outcome&&vote){entry.completedVotes++;const agrees=outcome==="accepted"?Boolean(vote.approve):!Boolean(vote.approve);if(!agrees)entry.disagreementVotes++}entry.assignedJobs.delete(jobId)}
  }
  require(address){const entry=this.validators.get(String(address||"").toLowerCase());if(!entry)throw new Error("Compute validator is not registered");return entry}
  validator(address){return publicValidator(this.require(address))}
