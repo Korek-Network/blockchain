@@ -1,5 +1,9 @@
 # Experimental confirmation and synchronization fixes
 
+This is the historical P2P-v2 report at commit `3a639e7`. The current branch adds
+P2P v3, journal storage and a failing release gate; see
+[SECURITY_AND_STORAGE.md](SECURITY_AND_STORAGE.md) for current behavior and blockers.
+
 Implemented and tested locally on 7 September 2026. **Not deployed.** This is a
 correctness patch for the existing JavaScript/Node engine, not a Rust or DAG
 engine, a finality protocol, or evidence of 10,000/50,000 real-world TPS.

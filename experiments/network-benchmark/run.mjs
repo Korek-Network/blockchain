@@ -25,7 +25,7 @@ process.env.KOREK_BLOCK_TIME_MS = String(profile.rewardBlockTimeMs);
 const { KorekChain, hashBlock } = await import("../../src/blockchain.js");
 const { verifyEnvelope } = await import("../../src/p2p.js");
 const { NODE_PROTOCOL } = await import("../../src/protocol.js");
-assert.equal(NODE_PROTOCOL, fixed ? "korek-planck-p2p/2" : "korek-planck-p2p/1", "On the patched P2P v2 branch use --fixed; legacy expectations belong to the baseline branch");
+assert.equal(NODE_PROTOCOL, fixed ? "korek-planck-p2p/3" : "korek-planck-p2p/1", "On the patched P2P v3 branch use --fixed; legacy expectations belong to the baseline branch");
 await mkdir(join(root, ".runs"), { recursive: true });
 const directory = await mkdtemp(join(root, ".runs", "run-"));
 const origin = performance.now(), clock = () => performance.now()-origin;
@@ -41,7 +41,7 @@ const sender = wallet(), recipient = wallet(), miner = wallet();
 let sequence = 0, controlId = 0;
 const timestampBase = Date.now();
 const sha = data => createHash("sha256").update(data).digest("hex");
-const report = { version: fixed ? "korek-local-multinode-benchmark/2" : "korek-local-multinode-benchmark/1", runAt: new Date().toISOString(), profile,
+const report = { version: fixed ? "korek-local-multinode-benchmark/3" : "korek-local-multinode-benchmark/1", runAt: new Date().toISOString(), profile,
   environment: { node: process.version, platform: platform(), arch: arch(), cpu: cpus()[0]?.model, logicalCpus: cpus().length },
   sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim(),
   sourceSha256: {}, scope: { realServerProcesses: 3, transport: "loopback HTTP, same host", signedTransactions: true,
@@ -49,7 +49,7 @@ const report = { version: fixed ? "korek-local-multinode-benchmark/2" : "korek-l
     funding: "local test faucet only; no live funds", computeMvp: false,
     labOverrides: "difficulty 3 and reward interval 250ms versus source defaults 7 and 60000ms; default 2000ms P2P polling retained",
     instrumentation: "method timings, loopback-only listener shim, IPC peer configuration; production handlers and fork choice unchanged",
-    persistence: "existing whole-snapshot write/rename; no fsync or power-loss durability guarantee",
+    persistence: "checksummed append journal with 5-ms save grouping, file/directory fsync and periodic checkpoints; hardware power loss not tested",
     finalityClaim: false, publicTestnetCapacityClaim: false, nodeProtocol: NODE_PROTOCOL, fixedSemantics: fixed }, phases, events };
 for (const file of ["server.js", "blockchain.js", "p2p.js", "storage.js", "config.js", "crypto.js", "mining-protocol.js", "protocol.js", ...(fixed ? ["confirmation.js", "chain-selection.js"] : [])]) {
   report.sourceSha256[file] = sha(await readFile(join(repository, "src", file)));
@@ -104,6 +104,7 @@ async function start(node) {
   });
   await ready;
   const status = await ok(node, "/api/status");
+  assert.equal(status.storage.mode, "journal-fsync-v2");
   assert.equal(status.nodeIdentity, node.peerId); assert.equal(status.compute.enabled, false);
   events.push({ type: "node-start", node: node.label, atMs: clock(), restoredHeight: status.height });
 }
@@ -323,15 +324,16 @@ try {
   }
 
   await collectMetrics("final");
+  report.finalStorageStatus = await Promise.all(nodes.map(async node=>({node:node.label,...(await ok(node,"/api/status")).storage})));
   const states = await Promise.all(nodes.map(snapshot));
-  for (const state of states) KorekChain.fromSnapshot(state);
+  for (const state of states) KorekChain.fromSnapshot(state,{peer:true});
   const stateHash = state => sha(JSON.stringify([state.chain.at(-1).hash, [...state.balances].sort(), state.feePool,
     state.minedSupply, state.testnetFaucetSupply, state.pending]));
   assert.equal(new Set(states.map(stateHash)).size, 1);
   await Promise.all(nodes.map(n => stop(n)));
   const diskStates = await Promise.all(nodes.map(n => new StateStore(join(n.directory, "state")).load()));
   for (let i = 0; i < nodes.length; i++) {
-    KorekChain.fromSnapshot(diskStates[i]); assert.equal(stateHash(diskStates[i]), stateHash(states[i]));
+    KorekChain.fromSnapshot(diskStates[i],{peer:true}); assert.equal(stateHash(diskStates[i]), stateHash(states[i]));
   }
   const finalIds = new Set(states[0].chain.flatMap(block => block.transactions.map(tx => tx.id)));
   const acknowledged = allRecords.filter(r => r.httpStatus === 201);

@@ -30,6 +30,19 @@ function identity() {
   const pair=generateKeyPairSync("ed25519"),publicKey=pair.publicKey.export({type:"spki",format:"pem"});
   return {peerId:sha256(publicKey),publicKey,privateKey:pair.privateKey.export({type:"pkcs8",format:"pem"})};
 }
+
+test("peer proof blocks must retain their signed timestamp and interval",()=>{
+ const chain=base();anchor(chain);const state=structuredClone(chain.snapshot());
+ state.chain.at(-1).timestamp++;state.chain.at(-1).hash=hashBlock(state.chain.at(-1));
+ assert.throws(()=>KorekChain.fromSnapshot(state,{peer:true}),/proof placement/);
+});
+
+test("real P2P refuses proofless reward issuance before server adoption",async()=>{
+ const source=base();source.mine(sender.address,undefined,Date.now(),{difficulty:0});
+ await paired(source,new KorekChain(),async({targetPeer,accepted})=>{
+   await assert.rejects(targetPeer.start(),/client proof/);assert.equal(accepted(),0);
+ });
+});
 function peer(getChain,onSnapshot=async()=>{},extra={}) {
   return new P2PNetwork({identity:identity(),name:"regression",port:0,advertiseUrl:null,syncIntervalMs:60000,getChain,onSnapshot,...extra});
 }

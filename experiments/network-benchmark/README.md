@@ -1,5 +1,12 @@
 # KOREK local multi-node benchmark
 
+The current security/storage follow-up uses P2P v3 and records evidence in
+`results/durable/`. Run with `--fixed`; verify that evidence with `--durable`.
+The existing `--fixed` verifier still checks the previous P2P-v2 evidence.
+See [SECURITY_AND_STORAGE.md](../../docs/SECURITY_AND_STORAGE.md) for the release
+blocker, storage-only comparison and compatibility requirements. Earlier reports
+below are historical and their result files are preserved.
+
 ## Experimental fix rerun
 
 The original evidence below is frozen at commit

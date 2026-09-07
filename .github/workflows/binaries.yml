@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm test
+      - name: Require replay-verified ledger state before release builds
+        run: node scripts/security-gate.mjs
       - run: node --check src/server.js
       - run: node --check src/mining-protocol.js
       - run: node --check src/miner-auth.js

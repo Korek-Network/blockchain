@@ -55,7 +55,7 @@ export class P2PNetwork{
  async syncFrom(peer,status){
   this.state="Syncing";let candidateData=await this.incrementalSnapshot(peer,status);
   if(!candidateData){const envelope=await getJson(`${peer.url}/p2p/snapshot`,15_000),payload=checkedStatus(verifyEnvelope(envelope,{peerId:status.peerId}));if(payload.snapshot?.chain?.at(-1)?.hash!==payload.tip||payload.snapshot.chain.length!==payload.height+1)throw new Error("Peer snapshot tip mismatch");candidateData={snapshot:payload.snapshot,status:payload}}
-  const candidate=KorekChain.fromSnapshot(candidateData.snapshot),verifiedWork=candidate.cumulativeWork();
+  const candidate=KorekChain.fromSnapshot(candidateData.snapshot,{peer:true}),verifiedWork=candidate.cumulativeWork();
   if(verifiedWork!==parseWork(candidateData.status.cumulativeWork))throw new Error("Peer work advertisement does not match validated chain");
   const decision=chainSelection(this.getChain(),candidate);
   if(!decision.adopt){peer.error=`Candidate retained locally: ${decision.reason}`;return false}

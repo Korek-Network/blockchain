@@ -2,8 +2,11 @@
 
 Planck v0.7.1 can run multiple node processes with independent signed identities. Nodes select a compatible chain by verified cumulative proof-of-work rather than height alone, so a longer zero-work chain cannot replace a stronger chain.
 
-**Experimental compatibility change:** this branch uses `korek-planck-p2p/2` and
-rejects version-1 envelopes. The displayed node version is still `0.7.1`; check
+**Experimental compatibility change:** this branch uses `korek-planck-p2p/3` and
+rejects version-1 and version-2 envelopes. Release remains blocked; read the
+[security and storage review](SECURITY_AND_STORAGE.md). Peer reward blocks require
+client proofs, and data directories upgrade to journal storage v2 on first write.
+The displayed node version is still `0.7.1`; check
 the protocol field, not the version label alone. Use this exact experimental
 revision for every node in an isolated test. Do not point these nodes at the live
 testnet or upgrade live nodes individually. Review and a coordinated testnet

@@ -12,7 +12,7 @@ const source = await realpath(resolve(process.argv[2]));
 if (!source.startsWith(join(root, ".runs") + sep)) throw new Error("Only this experiment's local runs can be exported");
 const report = JSON.parse(await readFile(source, "utf8"));
 assert.equal(report.completed, true);
-assert.ok(["korek-local-multinode-benchmark/1", "korek-local-multinode-benchmark/2"].includes(report.version));
+assert.ok(["korek-local-multinode-benchmark/1", "korek-local-multinode-benchmark/2", "korek-local-multinode-benchmark/3"].includes(report.version));
 const lines = [JSON.stringify({ columns: ["phase", "id", "scheduledMs", "sentMs", "responseMs", "httpStatus",
   "responseIdMatches", "A_observedMs", "B_observedMs", "C_observedMs", "blockHeight", "blockHash"] })];
 for (const phase of report.phases) {

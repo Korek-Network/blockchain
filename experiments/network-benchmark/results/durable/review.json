@@ -1,0 +1,109 @@
+{
+  "review": "local implementation review; independent audit still required",
+  "regressionTests": {
+    "passed": 115,
+    "failed": 0
+  },
+  "deploymentGate": {
+    "passed": false,
+    "reason": "Unbound per-account balance and faucet state accepted by peer validation",
+    "command": "node scripts/security-gate.mjs",
+    "expectedExitCode": 1,
+    "releaseWorkflowBlocked": true
+  },
+  "storageIncident": {
+    "version": "korek-local-multinode-benchmark/3",
+    "sourceCommit": "3a639e72a53490e3b296e78b55f0a915b200ac5a",
+    "sourceSha256": {
+      "server.js": "b407a912dcdb8a8c56851bff847242f1b6ab1bccbaf5d39cadf009c0d3765516",
+      "blockchain.js": "4ed5bc9bb05011f15cfc74c2ae91a1b86da1abcc09a46d08942011f5b354215c",
+      "p2p.js": "410efcbde12b686dad70bcbc9c5775d07d97673e71234103d1ff981b0446b0e3",
+      "storage.js": "634a728bdea4117c931402861f1653f4706b5e6dfbc2d3ca06f0c0857b64e8b0",
+      "config.js": "c7908399f28832835fcf9ae017bc80499471b10dccbae0f27a8eb242cd5b72d3",
+      "crypto.js": "a5b8b3cc9f7a74aa9551cc049ed3a950ea2dc5965b41e11a7473a7fe8bf9f6a5",
+      "mining-protocol.js": "4de10acf429072711962c5832e6909bec7f6bf7c94d1d0acaed3700c59663ff6",
+      "protocol.js": "ba9c76c9f6b9254927b672bc101bcf0a36e66e14af86e3908d64f25fcd73cdd3",
+      "confirmation.js": "56f1b46b74332f24c883a3c82e7779841cb6616314c9b9d40ec6d53e6fc145fe",
+      "chain-selection.js": "ee614df10f9be527d54295e9b423a3fd883ccbbb65c058274c931026df48c1f0"
+    },
+    "completed": false,
+    "failure": {
+      "message": "Journal sequence or link mismatch",
+      "stack": "Error: Journal sequence or link mismatch\n    at StateStore.load (file:///workspace/scratch/7f45242a978e/korek-blockchain/src/storage.js:62:12)\n    at async Promise.all (index 0)\n    at async file:///workspace/scratch/7f45242a978e/korek-blockchain/experiments/network-benchmark/run.mjs:334:22"
+    },
+    "events": [
+      {
+        "type": "node-start",
+        "node": "A",
+        "atMs": 98.33902,
+        "restoredHeight": 0
+      },
+      {
+        "type": "node-start",
+        "node": "B",
+        "atMs": 178.611521,
+        "restoredHeight": 0
+      },
+      {
+        "type": "node-start",
+        "node": "C",
+        "atMs": 263.137529,
+        "restoredHeight": 0
+      },
+      {
+        "type": "node-stop",
+        "node": "C",
+        "signal": "SIGKILL",
+        "atMs": 26719.328621
+      },
+      {
+        "type": "node-start",
+        "node": "C",
+        "atMs": 28819.378084,
+        "restoredHeight": 961
+      },
+      {
+        "type": "node-stop",
+        "node": "A",
+        "signal": "SIGKILL",
+        "atMs": 31156.526978
+      },
+      {
+        "type": "node-start",
+        "node": "A",
+        "atMs": 33394.203299,
+        "restoredHeight": 969
+      },
+      {
+        "type": "node-stop",
+        "node": "B",
+        "signal": "SIGTERM",
+        "atMs": 51631.86819
+      },
+      {
+        "type": "node-stop",
+        "node": "A",
+        "signal": "SIGTERM",
+        "atMs": 51631.875421000004
+      },
+      {
+        "type": "node-stop",
+        "node": "C",
+        "signal": "SIGTERM",
+        "atMs": 51631.966297000006
+      }
+    ],
+    "observedGap": {
+      "node": "A",
+      "previousSequence": 914,
+      "nextSequence": 937,
+      "linkMatched": false
+    },
+    "rootCause": "unconfirmed",
+    "workspaceEditingOverlapped": true,
+    "mitigation": "Length guard now stops subsequent writes after unexpected journal length changes; does not prevent external modifications or establish the incident's cause",
+    "followup": "Restart plus 60 appends and isolated full reruns passed; independent storage review remains required"
+  },
+  "liveDeploymentPerformed": false,
+  "mainUpdated": false
+}
