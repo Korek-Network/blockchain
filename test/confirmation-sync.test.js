@@ -17,9 +17,10 @@ function transfer(chain) {
     publicKey:sender.publicKey,signature:cryptoProvider.sign(message,sender.privateKey)});
   chain.sealPending();return tx.id;
 }
-function base() { const chain=new KorekChain();chain.claimFaucet(sender.address);return chain; }
-function anchor(chain) {
-  const miner=wallet(),template=createTemplate({...chain.miningTemplateData(miner.address),publicKey:miner.publicKey});
+let funded;
+function base() { if(!funded){funded=new KorekChain();anchor(funded,sender);}return clone(funded); }
+function anchor(chain,miner=wallet()) {
+  const template=createTemplate({...chain.miningTemplateData(miner.address),publicKey:miner.publicKey});
   assert.ok(template.difficulty<=3,"Run via npm test or with KOREK_DIFFICULTY=3");
   let nonce=0,powHash;do{powHash=powDigest(template.challenge,nonce++)}while(!meetsDifficulty(powHash,template.difficulty));
   const input={templateId:template.templateId,address:miner.address,publicKey:miner.publicKey,nonce:nonce-1,powHash,timestamp:template.notBefore};
@@ -46,6 +47,15 @@ test("real P2P refuses proofless reward issuance before server adoption",async()
 function peer(getChain,onSnapshot=async()=>{},extra={}) {
   return new P2PNetwork({identity:identity(),name:"regression",port:0,advertiseUrl:null,syncIntervalMs:60000,getChain,onSnapshot,...extra});
 }
+
+test("real P2P rejects substituted balances before adoption",async()=>{
+ const local=base(),source=clone(local);transfer(source);
+ source.balances.set(sender.address,source.balances.get(sender.address)-1n);
+ source.balances.set(receiver.address,source.balances.get(receiver.address)+1n);
+ await paired(source,local,async({targetPeer,accepted})=>{
+  await assert.rejects(targetPeer.start(),/replay: balance mismatch/);assert.equal(accepted(),0);
+ });
+});
 async function paired(source,local,action,extra={}) {
   const sourcePeer=peer(()=>source),address=await sourcePeer.start();let target=local,accepted=0;
   const targetPeer=peer(()=>target,async snapshot=>{target=KorekChain.fromSnapshot(snapshot);accepted++;return true;},
@@ -59,11 +69,11 @@ test("public inclusion is unanchored, projections preserve all canonical block b
   const tx=chain.transaction(id),block=chain.block(tx.blockHeight);
   assert.equal(tx.status,"included");assert.equal(tx.powConfirmations,0);assert.equal(tx.confirmedAt,null);
   assert.equal(tx.confirmationTimeMs,null);assert.equal(tx.finalized,false);assert.equal(tx.finalityTimeMs,null);
-  assert.equal(tx.includedAt,chain.chain[1].transactions[0].confirmedAt);
+  assert.equal(tx.includedAt,chain.chain[2].transactions[0].confirmedAt);
   assert.equal(block.transactions[0].status,"included");assert.equal(chain.transactions()[0].status,"included");
   assert.equal(chain.blocks()[0].transactions[0].status,"included");
   assert.equal(JSON.stringify(chain.snapshot()),original);
-  const raw=chain.block(1,{canonical:true});assert.equal(raw.transactions[0].status,"confirmed");
+  const raw=chain.block(2,{canonical:true});assert.equal(raw.transactions[0].status,"confirmed");
   assert.equal(hashBlock(raw),raw.hash);raw.transactions[0].status="changed";
   assert.equal(JSON.stringify(chain.snapshot()),original);
 });
@@ -86,7 +96,7 @@ test("legacy snapshot restore changes observation labels without rehashing histo
 test("persisted pending entries cannot spoof included or anchored placement",()=>{
   const chain=base();transfer(chain);anchor(chain);
   for(const status of ["confirmed","pending"]){
-    const state=structuredClone(chain.snapshot());state.pending=[{...state.chain[1].transactions[0],status}];
+    const state=structuredClone(chain.snapshot());state.pending=[{...state.chain[2].transactions[0],status}];
     assert.throws(()=>KorekChain.fromSnapshot(state),/pending transaction placement/);
   }
 });
@@ -137,7 +147,7 @@ test("incremental transfer follows a moving tip using terminal signed state, not
     let advanced=false;const original=sourcePeer.blocksPayload.bind(sourcePeer);
     sourcePeer.blocksPayload=url=>{if(!advanced){advanced=true;transfer(source)}return original(url)};
     sourcePeer.snapshotPayload=()=>{throw new Error("must not require full fallback")};
-    await targetPeer.start();assert.equal(target().chain.length,3);
+    await targetPeer.start();assert.equal(target().chain.length,4);
   },{syncBatchSize:1});
 });
 test("a signed false cumulative-work claim is rejected before the adoption callback",async()=>{

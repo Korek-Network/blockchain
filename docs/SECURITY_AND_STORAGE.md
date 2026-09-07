@@ -1,5 +1,10 @@
 # Experimental security review and journal storage
 
+Historical report at commit `c26859e`. The follow-up
+[REPLAY_SQLITE_FIX.md](REPLAY_SQLITE_FIX.md) documents replay validation, the now
+passing balance gate, and replacement of the custom writer by SQLite. The prior
+incident and evidence below remain preserved; they describe the previous version.
+
 **Release blocked; not deployed.** This follow-up builds on
 `fix/confirmation-and-sync` (commit `3a639e7`). It is an implementation review and
 local regression work, not an independent security audit. Main, live services,

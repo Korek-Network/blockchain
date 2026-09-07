@@ -25,7 +25,7 @@ process.env.KOREK_BLOCK_TIME_MS = String(profile.rewardBlockTimeMs);
 const { KorekChain, hashBlock } = await import("../../src/blockchain.js");
 const { verifyEnvelope } = await import("../../src/p2p.js");
 const { NODE_PROTOCOL } = await import("../../src/protocol.js");
-assert.equal(NODE_PROTOCOL, fixed ? "korek-planck-p2p/3" : "korek-planck-p2p/1", "On the patched P2P v3 branch use --fixed; legacy expectations belong to the baseline branch");
+assert.equal(NODE_PROTOCOL, fixed ? "korek-planck-p2p/4" : "korek-planck-p2p/1", "On the patched P2P v4 branch use --fixed; legacy expectations belong to the baseline branch");
 await mkdir(join(root, ".runs"), { recursive: true });
 const directory = await mkdtemp(join(root, ".runs", "run-"));
 const origin = performance.now(), clock = () => performance.now()-origin;
@@ -41,17 +41,17 @@ const sender = wallet(), recipient = wallet(), miner = wallet();
 let sequence = 0, controlId = 0;
 const timestampBase = Date.now();
 const sha = data => createHash("sha256").update(data).digest("hex");
-const report = { version: fixed ? "korek-local-multinode-benchmark/3" : "korek-local-multinode-benchmark/1", runAt: new Date().toISOString(), profile,
+const report = { version: fixed ? "korek-local-multinode-benchmark/4" : "korek-local-multinode-benchmark/1", runAt: new Date().toISOString(), profile,
   environment: { node: process.version, platform: platform(), arch: arch(), cpu: cpus()[0]?.model, logicalCpus: cpus().length },
   sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim(),
   sourceSha256: {}, scope: { realServerProcesses: 3, transport: "loopback HTTP, same host", signedTransactions: true,
     signature: "Ed25519, version 3 wormhole-v1 address scheme", ingress: "one funded sender, one recipient, fixed fee, sequentially scheduled requests",
-    funding: "local test faucet only; no live funds", computeMvp: false,
+    funding: "real lab PoW reward to sender; no faucet or live funds", computeMvp: false,
     labOverrides: "difficulty 3 and reward interval 250ms versus source defaults 7 and 60000ms; default 2000ms P2P polling retained",
     instrumentation: "method timings, loopback-only listener shim, IPC peer configuration; production handlers and fork choice unchanged",
-    persistence: "checksummed append journal with 5-ms save grouping, file/directory fsync and periodic checkpoints; hardware power loss not tested",
+    persistence: "SQLite rollback transactions, EXTRA synchronization and 5-ms save grouping; hardware power loss not tested",
     finalityClaim: false, publicTestnetCapacityClaim: false, nodeProtocol: NODE_PROTOCOL, fixedSemantics: fixed }, phases, events };
-for (const file of ["server.js", "blockchain.js", "p2p.js", "storage.js", "config.js", "crypto.js", "mining-protocol.js", "protocol.js", ...(fixed ? ["confirmation.js", "chain-selection.js"] : [])]) {
+for (const file of ["server.js", "blockchain.js", "p2p.js", "storage.js", "config.js", "crypto.js", "mining-protocol.js", "protocol.js", ...(fixed ? ["confirmation.js", "chain-selection.js", "ledger-replay.js", "legacy-storage.js"] : [])]) {
   report.sourceSha256[file] = sha(await readFile(join(repository, "src", file)));
 }
 report.benchmarkSourceSha256 = {};
@@ -104,7 +104,7 @@ async function start(node) {
   });
   await ready;
   const status = await ok(node, "/api/status");
-  assert.equal(status.storage.mode, "journal-fsync-v2");
+  assert.equal(status.storage.mode, "sqlite-extra-v3");
   assert.equal(status.nodeIdentity, node.peerId); assert.equal(status.compute.enabled, false);
   events.push({ type: "node-start", node: node.label, atMs: clock(), restoredHeight: status.height });
 }
@@ -201,10 +201,10 @@ async function load(name, ingress, rate, count, active = nodes) {
 async function collectMetrics(label, active = nodes) {
   archiveMetrics.push({ label, atMs: clock(), nodes: Object.fromEntries(await Promise.all(active.map(async n => [n.label, await control(n, "metrics")]))) });
 }
-async function mineAnchor(node) {
+async function mineAnchor(node, owner = miner) {
   const startedMs = clock(), timestamp = Date.now(), requestNonce = randomRequestNonce();
-  const work = { address: miner.address, publicKey: miner.publicKey, timestamp, requestNonce };
-  work.signature = cryptoProvider.sign(miningRequestMessage(work), miner.privateKey);
+  const work = { address: owner.address, publicKey: owner.publicKey, timestamp, requestNonce };
+  work.signature = cryptoProvider.sign(miningRequestMessage(work), owner.privateKey);
   const template = await ok(node, "/miner/v3/work", work);
   let nonce = template.nonceStart, digest;
   const deadline = clock()+10000;
@@ -214,12 +214,12 @@ async function mineAnchor(node) {
     if (++nonce > template.nonceEnd || clock()>deadline) throw new Error("Bounded lab proof search failed");
   }
   if (Date.now() < template.notBefore) await delay(template.notBefore-Date.now()+1);
-  const submission = { address: miner.address, publicKey: miner.publicKey, templateId: template.templateId,
+  const submission = { address: owner.address, publicKey: owner.publicKey, templateId: template.templateId,
     nonce, powHash: digest, timestamp: Date.now(), hashesTried: nonce+1, device: "local-benchmark" };
-  submission.signature = cryptoProvider.sign(miningSubmissionMessage(submission), miner.privateKey);
+  submission.signature = cryptoProvider.sign(miningSubmissionMessage(submission), owner.privateKey);
   const result = await ok(node, "/miner/v3/submit", submission);
   assert.equal(result.accepted, true);
-  return { height: result.block.height, hash: result.block.hash, difficulty: template.difficulty, hashesTried: nonce+1, elapsedMs: clock()-startedMs };
+  return { minerReward: result.block.minerReward, height: result.block.height, hash: result.block.hash, difficulty: template.difficulty, hashesTried: nonce+1, elapsedMs: clock()-startedMs };
 }
 async function waitTip(expectedHash, active = nodes) {
   const deadline = clock()+profile.replicationTimeoutMs;
@@ -234,7 +234,9 @@ async function waitTip(expectedHash, active = nodes) {
 try {
   const a = await makeNode("A"), b = await makeNode("B"), c = await makeNode("C");
   await wire(nodes);
-  await ok(a, "/api/faucet", { address: sender.address });
+  const funding = await mineAnchor(a, sender); report.fundingProof = funding;
+  assert.equal(await waitTip(funding.hash), true);
+  assert.equal((await request(a, "/api/faucet", { address: sender.address })).status, 400);
   const warmup = inputs(1).values[0], warm = await submit(a, warmup);
   assert.equal(warm.httpStatus, 201); assert.equal(await waitReplicated([warm]), true);
   await collectMetrics("before-rate-sweep");
@@ -342,7 +344,7 @@ try {
   const expectedFinalCount = acknowledged.length-1;
   assert.equal(finalIds.size, expectedFinalCount);
   const finalChain = KorekChain.fromSnapshot(states[0]);
-  assert.equal(finalChain.balance(sender.address), (100n*100000000n-BigInt(expectedFinalCount)*21001n).toString());
+  assert.equal(finalChain.balance(sender.address), (BigInt(report.fundingProof.minerReward)-BigInt(expectedFinalCount)*21001n).toString());
   assert.equal(finalChain.balance(recipient.address), String(expectedFinalCount));
   report.finalState = { consistentAcrossNodes: true, restoredSnapshotsMatch: true, exactTransferBalancesMatched: true,
     height: states[0].chain.length-1, uniqueTransfers: finalIds.size, cumulativeWork: finalChain.cumulativeWork().toString(),
@@ -361,7 +363,7 @@ try {
     "Closed maximum-in-flight cap can throttle the offered schedule; recorded lateness must be inspected",
     "Driver polling, timing wrappers and three server processes compete on the same CPU/disk",
     "All-node observation is sampled, not exact arrival time, economic finality, or Byzantine consensus",
-    "Rate-sweep blocks have zero cumulative proof-of-work and precede the controlled mining scenario",
+    "Rate-sweep transfer blocks add zero work but extend a real PoW-funded chain",
     "Crash tests stop owned processes after acknowledgments; no power loss, corrupt disk or mid-write fault injection",
     "No WAN, geographic decentralization, adversarial validator quorum, long-duration saturation, or public-testnet TPS measurement"];
   await writeFile(join(directory, "report.json"), JSON.stringify(report, null, 2));

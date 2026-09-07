@@ -1,5 +1,10 @@
 # KOREK local multi-node benchmark
 
+The latest replay/SQLite follow-up uses P2P v4, Node 24 and real PoW funding.
+Run with `--fixed` and verify its separate `results/replay-sqlite/` trace with
+`--sqlite`. See [current migration notes](../../docs/REPLAY_SQLITE_FIX.md).
+All older summaries below are historical; their evidence is unchanged.
+
 The current security/storage follow-up uses P2P v3 and records evidence in
 `results/durable/`. Run with `--fixed`; verify that evidence with `--durable`.
 The existing `--fixed` verifier still checks the previous P2P-v2 evidence.

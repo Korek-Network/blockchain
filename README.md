@@ -2,11 +2,11 @@
 
 KOREK is an experimental proof-of-work blockchain research project connecting network security with verifiable distributed computation. Planck v0.7.1 is a public testnet, not production cryptocurrency software. Test KRK has no monetary value and will not migrate to mainnet.
 
-This experimental branch uses `korek-planck-p2p/3` and journal storage v2.
-**Release is blocked by incomplete ledger-state validation.** It is not deployed
-and is incompatible with earlier peer protocols and older storage writers.
-See [security and storage review](docs/SECURITY_AND_STORAGE.md) and the earlier
-[confirmation changes](docs/CONFIRMATION_AND_SYNC.md) before running it.
+This experimental branch uses `korek-planck-p2p/4`, replay-verified PoW-funded
+balances and SQLite storage v3. The reproduced balance gate now passes.
+**Not deployed:** old faucet-funded histories cannot join this peer network.
+Read [replay and SQLite migration notes](docs/REPLAY_SQLITE_FIX.md) before testing.
+Independent review and packaged-runtime validation remain required.
 
 ## Start mining
 
@@ -61,7 +61,7 @@ Faucet balances are test-only, sit outside fixed-supply issuance counters, and n
 
 ## Run a development node
 
-Requires Node.js 22 or newer.
+Requires Node.js 24 or newer on this experimental branch.
 
 ```bash
 git clone https://github.com/Korek-Network/blockchain.git

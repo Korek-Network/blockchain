@@ -22,7 +22,7 @@ At the initial subsidy, the miner receives 47.5 KRK plus fees and the treasury r
 1. **Ledger and execution:** signed transfers, balances, fee pool and deterministic block validation.
 2. **Mining:** wallet-signed Protocol v3 templates and independently verified SHA-256 proofs from CPU or experimental WebGPU clients.
 3. **Networking:** signed node identities, peer discovery and verified stronger-work selection; equal-work candidates must be strict extensions of the entire selected block history. Conflicting equal-work branches are retained until stronger work resolves them.
-4. **Storage:** checksummed append journals, bounded save groups, fsync and periodic checkpoints; experimental Linux recovery tests only. See [security and storage limits](SECURITY_AND_STORAGE.md).
+4. **Storage:** SQLite atomic transactions, bounded save groups and EXTRA synchronization; experimental Linux recovery tests only. See [replay and migration limits](REPLAY_SQLITE_FIX.md).
 5. **Clients:** public explorer, desktop miner, desktop wallet and node packages.
 6. **Crypto boundary:** versioned account formats designed to permit reviewed future migration.
 

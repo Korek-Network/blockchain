@@ -73,7 +73,7 @@ const apiServer=createServer(async(req,res)=>{try{const url=new URL(req.url,`htt
  if(req.method==="POST"&&url.pathname==="/miner/v3/submit")return json(res,201,await submitWork(await body(req)),true);
  if(req.method==="POST"&&url.pathname==="/api/wallet"){const wallet=cryptoProvider.createWallet();res.setHeader("cache-control","no-store");return json(res,201,wallet,true)}
  if(req.method==="POST"&&url.pathname==="/api/transactions"){const tx=chain.addTransaction(await body(req));chain.sealPending();await saveNodeState();const observed=chain.transaction(tx.id);return observed?json(res,201,observed,true):json(res,409,{id:tx.id,status:"reorganized",finalized:false,error:"Transaction left the selected chain before acknowledgment"},true)}
- if(req.method==="POST"&&url.pathname==="/api/faucet"){const input=await body(req),claim=chain.claimFaucet(input.address);await saveNodeState();return json(res,201,claim,true)}
+ if(req.method==="POST"&&url.pathname==="/api/faucet"){if(p2pRequested)throw new Error("Faucet is single-node only; network balances must originate in verified PoW");const input=await body(req),claim=chain.claimFaucet(input.address);await saveNodeState();return json(res,201,claim,true)}
  if(req.method==="GET"&&url.pathname==="/api/compute/status")return json(res,200,computeStatus(),true);
  if(req.method==="GET"&&url.pathname==="/api/compute/validators"){requireCompute();return json(res,200,validatorRegistry.list({status:url.searchParams.get("status"),limit:url.searchParams.get("limit")||100}),true)}
  if(req.method==="POST"&&url.pathname==="/api/compute/validators/register"){const input=await body(req),entry=await persistCompute(()=>validatorRegistry.register(input));return json(res,201,entry,true)}

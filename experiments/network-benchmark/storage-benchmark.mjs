@@ -24,7 +24,7 @@ for(let i=0;i<count;i++){
  const snapshot=chain.snapshot();snapshots.push({...snapshot,chain:[...snapshot.chain],pending:[...snapshot.pending]});
 }
 const rows=[];
-for(const burst of [1,16])for(const name of ["legacy","journal"]){
+for(const burst of [1,16])for(const name of ["legacy","sqlite"]){
  const Store=name==="legacy"?LegacyStore:StateStore,store=new Store(join(directory,`${name}-${burst}`));
  await store.load();const started=performance.now(),acknowledgments=[];
  for(let from=0;from<count;from+=burst){const promises=[];
@@ -34,11 +34,11 @@ for(const burst of [1,16])for(const name of ["legacy","journal"]){
  }
  const elapsedMs=performance.now()-started,restored=await new Store(store.directory).load();
  assert.deepEqual(restored,snapshots.at(-1));KorekChain.fromSnapshot(restored);
- const sorted=[...acknowledgments].sort((a,b)=>a-b),status=name==="journal"?store.status():null;
+ const sorted=[...acknowledgments].sort((a,b)=>a-b),status=name==="sqlite"?store.status():null;
  const legacyBytes=name==="legacy"?snapshots.reduce((sum,state)=>sum+Buffer.byteLength(JSON.stringify({format:"korek-chain-state",version:1,savedAt:Date.now(),state,checksum:hash(JSON.stringify(state))})),0):null;
  rows.push({name,burst,saves:count,elapsedMs,saveAcknowledgmentsPerSecond:count/(elapsedMs/1000),
   ackP95Ms:sorted[Math.ceil(sorted.length*.95)-1],bytesWritten:status?.bytesWritten??legacyBytes,
-  commits:status?.commits??count,fsync:name==="journal",restoredExactly:true,acknowledgmentMs:acknowledgments});
+  rowsWritten:status?.rowsWritten??null,commits:status?.commits??count,fsync:name==="sqlite",restoredExactly:true,acknowledgmentMs:acknowledgments});
 }
 const report={version:"korek-storage-comparison/1",runAt:new Date().toISOString(),runtime:{node:process.version,cpu:cpus()[0]?.model,logicalCpus:cpus().length},
  sourceCommit:execFileSync("git",["rev-parse","HEAD"],{cwd:repository,encoding:"utf8"}).trim(),legacyCommit:base,

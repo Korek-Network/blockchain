@@ -6,107 +6,76 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { fork } from "node:child_process";
 import { once } from "node:events";
+import { DatabaseSync } from "node:sqlite";
 import { StateStore } from "../src/storage.js";
 
 const digest=value=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
-async function setup(t,options={}){const directory=await fs.mkdtemp(join(tmpdir(),"korek-storage-test-"));t.after(()=>fs.rm(directory,{recursive:true,force:true}));return new StateStore(directory,{batchMs:0,...options});}
 const snapshot=n=>({version:1,chain:Array.from({length:n},(_,height)=>({height,data:"x".repeat(64)})),balances:[["test",String(n)]]});
+async function setup(t,options={}){const directory=await fs.mkdtemp(join(tmpdir(),"korek-sqlite-test-"));const store=new StateStore(directory,{batchMs:0,...options});t.after(()=>{store.close();return fs.rm(directory,{recursive:true,force:true});});return store;}
+async function restored(store){return new StateStore(store.directory).load();}
 
-test("legacy checksum snapshots load and migrate without rewriting original blocks",async t=>{
- const store=await setup(t,{checkpointEvery:2}),state=snapshot(1);
- await fs.writeFile(store.file,JSON.stringify({format:"korek-chain-state",version:1,state,checksum:digest(state)}));
- assert.deepEqual(await store.load(),state);await store.save(snapshot(2));await store.save(snapshot(3));
- assert.equal(JSON.parse(await fs.readFile(store.file)).version,2);
- assert.deepEqual(await new StateStore(store.directory).load(),snapshot(3));
+test("legacy state imports exactly and old readers are fenced before acknowledgment",async t=>{
+ const store=await setup(t),state=snapshot(1),raw=JSON.stringify({format:"korek-chain-state",version:1,state,checksum:digest(state)});
+ await fs.writeFile(store.file,raw);assert.deepEqual(await store.load(),state);await store.save(snapshot(2));
+ assert.equal(JSON.parse(await fs.readFile(store.file)).version,3);assert.equal(await fs.readFile(store.file+".pre-sqlite","utf8"),raw);
+ assert.deepEqual(await restored(store),snapshot(2));
 });
-test("queued value snapshots freeze before caller mutation",async t=>{
- const store=await setup(t,{batchMs:10}),state=snapshot(1),saved=store.save(state);
- state.chain.push({height:1});state.balances[0][1]="corrupt";await saved;
- assert.deepEqual(await new StateStore(store.directory).load(),snapshot(1));
+test("queued values freeze and provider groups capture a complete final state",async t=>{
+ const store=await setup(t,{batchMs:10}),state=snapshot(1),p=store.save(state);state.balances[0][1]="bad";await p;
+ assert.deepEqual(await restored(store),snapshot(1));let current;const waiting=[];
+ for(let i=2;i<=20;i++){current=snapshot(i);waiting.push(store.save(()=>current));}
+ await Promise.all(waiting);assert.equal(store.status().commits,2);assert.deepEqual(await restored(store),snapshot(20));
 });
-test("the first journal acknowledgment fences legacy snapshot readers",async t=>{
- const store=await setup(t);await store.save(snapshot(1));
- const checkpoint=JSON.parse(await fs.readFile(store.file,"utf8"));assert.equal(checkpoint.version,2);
- assert.deepEqual(await new StateStore(store.directory).load(),snapshot(1));
+test("extensions update only new block rows; forks and bundles restore exactly",async t=>{
+ const store=await setup(t);await store.save(snapshot(10));const previous=store.status().rowsWritten;
+ await store.save(snapshot(11));assert.equal(store.status().rowsWritten-previous,2);
+ const fork=snapshot(3);fork.chain[1].data="fork";await store.save(fork);assert.deepEqual(await restored(store),fork);
+ const bundle={bundleVersion:2,chain:fork,compute:{jobs:["a"]}};await store.save(bundle);assert.deepEqual(await restored(store),bundle);
 });
-test("provider group commit durably covers all concurrent saves",async t=>{
- const store=await setup(t,{batchMs:10});let state=snapshot(0);const waiting=[];
- for(let i=1;i<=20;i++){state=snapshot(i);waiting.push(store.save(()=>state));}
- await Promise.all(waiting);assert.equal(store.status().commits,1);assert.equal(store.status().saves,20);
- assert.deepEqual(await new StateStore(store.directory).load(),snapshot(20));
+test("failed transaction rolls back all partial rows and rejects acknowledgments",async t=>{
+ const store=await setup(t);await store.save(snapshot(2));store.beforeCommit=()=>{throw new Error("injected transaction failure");};
+ await assert.rejects(store.save(snapshot(4)),/injected/);assert.deepEqual(await restored(store),snapshot(2));
+ assert.equal(store.status().healthy,false);await assert.rejects(store.save(snapshot(5)),/Storage is stopped/);
 });
-test("append records retain only new blocks and restore exact state",async t=>{
- const store=await setup(t);await store.save(snapshot(10));await store.save(snapshot(11));
- const records=(await fs.readFile(store.journal,"utf8")).trim().split("\n").map(JSON.parse);
- assert.equal(records[1].update.kind,"append");assert.equal(records[1].update.blocks.length,1);
- assert.deepEqual(await new StateStore(store.directory).load(),snapshot(11));
+test("a stale second writer cannot overwrite a committed state",async t=>{
+ const store=await setup(t),second=new StateStore(store.directory,{batchMs:0});t.after(()=>second.close());
+ await store.load();await second.load();await store.save(snapshot(1));
+ await assert.rejects(second.save(snapshot(2)),/Stale storage writer/);assert.deepEqual(await restored(store),snapshot(1));
 });
-test("fork replacement, shorter state and arbitrary compute bundles restore exactly",async t=>{
- const store=await setup(t);await store.save(snapshot(3));const fork=snapshot(2);fork.chain[1].data="fork";
- await store.save(fork);assert.deepEqual(await new StateStore(store.directory).load(),fork);
- const bundle={bundleVersion:2,chain:fork,compute:{jobs:["job"]},validators:{locked:"3"}};
- await store.save(bundle);assert.deepEqual(await new StateStore(store.directory).load(),bundle);
+test("SQLite checksum detects externally changed state",async t=>{
+ const store=await setup(t);await store.save(snapshot(2));const db=new DatabaseSync(store.database);
+ db.exec("UPDATE state SET payload='{}'");db.close();await assert.rejects(restored(store),/checksum/);
 });
-test("an incomplete final record is ignored and removed before further appends",async t=>{
- const store=await setup(t);await store.save(snapshot(1));await fs.appendFile(store.journal,'{"version":1,"sequence":2');
- const recovered=new StateStore(store.directory,{batchMs:0});assert.deepEqual(await recovered.load(),snapshot(1));
- assert.ok(recovered.status().recoveredPartialBytes>0);await recovered.save(snapshot(2));
- assert.deepEqual(await new StateStore(store.directory).load(),snapshot(2));
+test("malformed SQLite files fail closed instead of loading an old snapshot",async t=>{
+ const store=await setup(t);await fs.writeFile(store.database,"not a SQLite database");await assert.rejects(store.load());
 });
-test("corrupt complete records and broken links fail closed",async t=>{
- const store=await setup(t);await store.save(snapshot(1));await store.save(snapshot(2));
- const raw=await fs.readFile(store.journal,"utf8"),records=raw.trim().split("\n").map(JSON.parse);
- records[1].update.fields.balances[0][1]="999";await fs.writeFile(store.journal,records.map(JSON.stringify).join("\n")+"\n");
- await assert.rejects(new StateStore(store.directory).load(),/checksum/);
- records[1]=JSON.parse(raw.trim().split("\n")[1]);records[1].previous="f".repeat(64);
- const {checksum,...payload}=records[1];records[1].checksum=digest(payload);
- await fs.writeFile(store.journal,records.map(JSON.stringify).join("\n")+"\n");
- await assert.rejects(new StateStore(store.directory).load(),/link mismatch/);
-});
-test("out-of-band journal truncation stops subsequent acknowledgments",async t=>{
- const store=await setup(t);await store.save(snapshot(1));await store.save(snapshot(2));
- const first=(await fs.readFile(store.journal,"utf8")).split("\n")[0];await fs.writeFile(store.journal,first+"\n");
- await assert.rejects(store.save(snapshot(3)),/changed outside this writer/);assert.equal(store.status().healthy,false);
-});
-test("checkpoint recovery tolerates old journal left before rotation",async t=>{
- const store=await setup(t,{checkpointEvery:2});await store.save(snapshot(1));
- const originalCheckpoint=store.checkpoint.bind(store);let oldJournal;
- store.checkpoint=async()=>{oldJournal=await fs.readFile(store.journal);await originalCheckpoint();};
- await store.save(snapshot(2));await fs.writeFile(store.journal,oldJournal);
- const recovered=new StateStore(store.directory,{batchMs:0});assert.deepEqual(await recovered.load(),snapshot(2));
- await recovered.save(snapshot(3));assert.deepEqual(await new StateStore(store.directory).load(),snapshot(3));
-});
-test("acknowledgment waits for journal fsync and an fsync failure stops later writes",async t=>{
- const store=await setup(t);await store.load();const events=[];
- store.io={...fs,open:async(path,...args)=>{
-   const handle=await fs.open(path,...args);
-   return new Proxy(handle,{get(target,key){if(key==="sync")return async()=>{events.push(path===store.journal?"journal-sync":"directory-sync");if(path===store.journal)throw new Error("injected disk sync failure");};const value=target[key];return typeof value==="function"?value.bind(target):value;}});
- }};
- let acknowledged=false;await assert.rejects(store.save(snapshot(1)).then(()=>{acknowledged=true;}),/disk sync failure/);
- assert.equal(acknowledged,false);assert.ok(events.includes("journal-sync"));assert.equal(store.status().healthy,false);
- await assert.rejects(store.save(snapshot(2)),/Storage is stopped/);
-});
-test("directory sync occurs after journal sync and before acknowledgment",async t=>{
- const store=await setup(t),events=[];
- store.io={...fs,open:async(path,...args)=>{const handle=await fs.open(path,...args);return new Proxy(handle,{get(target,key){
-   if(key==="sync")return async()=>{await target.sync();events.push(path===store.journal?"journal":"directory");};
-   const value=target[key];return typeof value==="function"?value.bind(target):value;}});}};
- await store.save(snapshot(1));events.push("ack");
- assert.ok(events.indexOf("journal")<events.lastIndexOf("directory"));assert.equal(events.at(-1),"ack");
-});
-test("bounded queue rejects overload and resumes after the group completes",async t=>{
+test("queue is bounded and resumes after successful commit",async t=>{
  const store=await setup(t,{batchMs:10,maxQueued:2}),a=store.save(snapshot(1)),b=store.save(snapshot(2));
- await assert.rejects(store.save(snapshot(3)),/queue is full/);await Promise.all([a,b]);
- await store.save(snapshot(4));assert.deepEqual(await new StateStore(store.directory).load(),snapshot(4));
+ await assert.rejects(store.save(snapshot(3)),/queue is full/);await Promise.all([a,b]);await store.save(snapshot(4));
+ assert.deepEqual(await restored(store),snapshot(4));
 });
-
-test("SIGKILL recovery retains every acknowledgment reported by the writer",async t=>{
- const store=await setup(t),child=fork(new URL("../scripts/storage-writer-fixture.mjs",import.meta.url),[store.directory],{execArgv:[],stdio:["ignore","ignore","pipe","ipc"]});
+test("legacy journal import is read-only and preserves verified records",async t=>{
+ const store=await setup(t),payload={version:1,sequence:1,previous:"0".repeat(64),update:{kind:"replace",state:snapshot(1)}};
+ const path=join(store.directory,"chain-journal.jsonl"),raw=JSON.stringify({...payload,checksum:digest(payload)})+"\n";
+ await fs.writeFile(path,raw);assert.deepEqual(await store.load(),snapshot(1));await store.save(snapshot(2));
+ assert.equal(await fs.readFile(path,"utf8"),raw);assert.deepEqual(await restored(store),snapshot(2));
+});
+test("a legacy sequence gap refuses migration without inventing missing state",async t=>{
+ const store=await setup(t),payload={version:1,sequence:3,previous:"0".repeat(64),update:{kind:"replace",state:snapshot(3)}};
+ await fs.writeFile(join(store.directory,"chain-journal.jsonl"),JSON.stringify({...payload,checksum:digest(payload)})+"\n");
+ await assert.rejects(store.save(snapshot(4)),/extend checkpoint/);await assert.rejects(fs.access(store.database));
+});
+test("SQLite uses rollback journaling with EXTRA synchronization",async t=>{
+ const store=await setup(t);await store.save(snapshot(1));assert.equal(store.db.prepare("PRAGMA synchronous").get().synchronous,3);
+ assert.equal(store.db.prepare("PRAGMA journal_mode").get().journal_mode,"delete");
+ assert.equal((await fs.stat(store.database)).mode&0o777,0o600);
+});
+for(const phase of ["during","after"])test("SIGKILL "+phase+" transaction preserves every acknowledged state",async t=>{
+ const store=await setup(t),child=fork(new URL("../scripts/storage-writer-fixture.mjs",import.meta.url),[store.directory,phase],{execArgv:[],stdio:["ignore","ignore","pipe","ipc"]});
  t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill("SIGKILL");});
- let acknowledged=0,logs="";child.stderr.on("data",data=>{logs+=data;});
- const exited=once(child,"exit");
- child.on("message",message=>{acknowledged=Math.max(acknowledged,message.acknowledged);if(acknowledged>=10)child.kill("SIGKILL");});
- const [code,signal]=await exited;assert.equal(signal,"SIGKILL",logs);assert.ok(acknowledged>=10);
- const recovered=await new StateStore(store.directory).load();assert.ok(recovered.counter>=acknowledged);
- assert.equal(recovered.chain.length,recovered.counter);
+ let acknowledged=0,logs="";child.stderr.on("data",data=>{logs+=data;});const exited=once(child,"exit");
+ child.on("message",message=>{acknowledged=Math.max(acknowledged,message.acknowledged);if(phase==="after"&&acknowledged>=10)child.kill("SIGKILL");});
+ const [,signal]=await exited;assert.equal(signal,"SIGKILL",logs);assert.ok(acknowledged>=9);
+ const state=await restored(store);assert.ok(state.counter>=acknowledged);assert.equal(state.chain.length,state.counter);
+ if(phase==="during")assert.equal(state.counter,9);
 });

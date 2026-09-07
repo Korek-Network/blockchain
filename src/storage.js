@@ -1,134 +1,110 @@
+import { DatabaseSync } from "node:sqlite";
 import { createHash,randomUUID } from "node:crypto";
-import * as filesystem from "node:fs/promises";
+import { mkdir,access,readFile,open,rename,copyFile,chmod } from "node:fs/promises";
+import { constants } from "node:fs";
 import { dirname,join,resolve } from "node:path";
+import { LegacyStateReader } from "./legacy-storage.js";
 
-const digest=value=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const copy=value=>JSON.parse(JSON.stringify(value));
-const zero="0".repeat(64);
-function updateFor(previous,next) {
- // Bundles replace; plain snapshots append blocks and retain all other fields.
- if(previous&&Array.isArray(previous.chain)&&Array.isArray(next.chain)&&next.chain.length>=previous.chain.length&&
-   previous.chain.every((block,index)=>JSON.stringify(block)===JSON.stringify(next.chain[index]))) {
-   const {chain,...fields}=next;
-   return {kind:"append",from:previous.chain.length,blocks:chain.slice(previous.chain.length),fields};
- }
- return {kind:"replace",state:next};
-}
-function applyUpdate(previous,update) {
- if(update?.kind==="replace")return update.state;
- if(update?.kind!=="append"||!Array.isArray(previous?.chain)||update.from!==previous.chain.length||
-   !Array.isArray(update.blocks)||!update.fields||Object.hasOwn(update.fields,"chain"))throw new Error("Invalid journal append");
- return {...update.fields,chain:[...previous.chain,...update.blocks]};
-}
+const hash=value=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const clone=value=>JSON.parse(JSON.stringify(value));
+const representation=state=>{
+ if(Array.isArray(state?.chain)){const {chain,...fields}=state;return {kind:"ledger",payload:JSON.stringify(fields),blocks:chain.map(JSON.stringify)};}
+ return {kind:"bundle",payload:JSON.stringify(state),blocks:[]};
+};
+const decode=row=>row.kind==="ledger"?{...JSON.parse(row.payload),chain:row.blocks.map(JSON.parse)}:JSON.parse(row.payload);
 
-// One writer per directory. Acknowledgments follow journal and directory fsync.
-// Checksums detect accidental damage, not hostile edits by a disk attacker.
+// SQLite owns locking and rollback recovery. No custom journal append/truncation
+// code runs here. A stale second writer fails its revision comparison.
 export class StateStore {
- constructor(directory,{batchMs=5,checkpointEvery=128,maxQueued=1024,io=filesystem}={}) {
-  if(!Number.isInteger(batchMs)||batchMs<0||batchMs>100||!Number.isInteger(checkpointEvery)||checkpointEvery<1||
-    !Number.isInteger(maxQueued)||maxQueued<1)throw new Error("Invalid storage options");
-  this.directory=resolve(directory);this.file=join(this.directory,"chain-state.json");
-  this.journal=join(this.directory,"chain-journal.jsonl");this.io=io;
-  this.batchMs=batchMs;this.checkpointEvery=checkpointEvery;this.maxQueued=maxQueued;
-  this.pending=[];this.state=null;this.sequence=0;this.head=zero;this.loaded=false;this.error=null;
-  this.stats={saves:0,commits:0,checkpoints:0,bytesWritten:0,recoveredPartialBytes:0};
+ constructor(directory,{batchMs=5,maxQueued=1024,beforeCommit=null}={}) {
+  if(!Number.isInteger(batchMs)||batchMs<0||batchMs>100||!Number.isInteger(maxQueued)||maxQueued<1)throw new Error("Invalid storage options");
+  this.directory=resolve(directory);this.file=join(this.directory,"chain-state.json");this.database=join(this.directory,"chain.sqlite");
+  this.batchMs=batchMs;this.maxQueued=maxQueued;this.beforeCommit=beforeCommit;this.pending=[];
+  this.state=null;this.revision=0;this.blockRows=[];this.loaded=false;this.error=null;this.db=null;this.fenced=false;
+  this.stats={saves:0,commits:0,rowsWritten:0};
  }
- status(){return {mode:"journal-fsync-v2",healthy:!this.error,error:this.error?.message||null,
-   batchMs:this.batchMs,queued:this.pending.length,...this.stats};}
- assertWritable(){if(this.pending.length>=this.maxQueued)throw new Error("Storage queue is full");if(this.error)throw new Error("Storage is stopped after an error; restart after repair: "+this.error.message);}
- async load() {
-  if(this.loaded)return this.state===null?null:copy(this.state);
-  try {
-   const envelope=JSON.parse(await this.io.readFile(this.file,"utf8"));
-   if(envelope.format!=="korek-chain-state"||![1,2].includes(envelope.version))throw new Error("Unsupported state file");
-   const expected=envelope.version===1?digest(envelope.state):digest({state:envelope.state,journal:envelope.journal});
-   if(expected!==envelope.checksum)throw new Error("Chain state checksum verification failed");
-   this.state=envelope.state;
-   this.checkpointV2=envelope.version===2;
-   if(envelope.version===2){if(!Number.isSafeInteger(envelope.journal?.sequence)||envelope.journal.sequence<0||
-     !/^[0-9a-f]{64}$/.test(envelope.journal.head))throw new Error("Invalid checkpoint cursor");
-     this.sequence=envelope.journal.sequence;this.head=envelope.journal.head;}
-  }catch(error){if(error.code!=="ENOENT")throw error;}
-  let raw;
-  try{raw=await this.io.readFile(this.journal);}catch(error){if(error.code!=="ENOENT")throw error;raw=Buffer.alloc(0);}
-  const completeBytes=raw.lastIndexOf(10)+1,checkpointSequence=this.sequence;
-  this.stats.recoveredPartialBytes=raw.length-completeBytes;this.validJournalBytes=completeBytes;
-  this.expectedJournalBytes=completeBytes;
-  let previousRecord=null;
-  for(const line of raw.subarray(0,completeBytes).toString("utf8").split("\n").filter(Boolean)) {
-   const record=JSON.parse(line),{checksum,...payload}=record;
-   if(record.version!==1||!Number.isSafeInteger(record.sequence)||record.sequence<1||checksum!==digest(payload)||
-      !/^[0-9a-f]{64}$/.test(record.previous))throw new Error("Journal checksum or format verification failed");
-   if(previousRecord&&(record.sequence!==previousRecord.sequence+1||record.previous!==previousRecord.checksum))
-     throw new Error("Journal sequence or link mismatch");
-   previousRecord=record;
-   if(record.sequence<=checkpointSequence){if(record.sequence===checkpointSequence&&checksum!==this.head)
-     throw new Error("Journal does not match checkpoint");continue;}
-   if(record.sequence!==this.sequence+1||record.previous!==this.head)throw new Error("Journal does not extend checkpoint");
-   this.state=applyUpdate(this.state,record.update);this.sequence=record.sequence;this.head=checksum;
+ status(){return {mode:"sqlite-extra-v3",healthy:!this.error,error:this.error?.message||null,batchMs:this.batchMs,queued:this.pending.length,...this.stats};}
+ assertWritable(){if(this.error)throw new Error("Storage is stopped after an error: "+this.error.message);if(this.closed)throw new Error("Storage is closed");if(this.pending.length>=this.maxQueued)throw new Error("Storage queue is full");}
+ async load(){
+  if(this.loaded)return clone(this.state);
+  let exists=true;try{await access(this.database);}catch(error){if(error.code!=="ENOENT")throw error;exists=false;}
+  if(exists){
+   const db=new DatabaseSync(this.database,{readOnly:true});
+   try{
+    db.exec("PRAGMA busy_timeout=100; BEGIN");
+    if(db.prepare("PRAGMA quick_check").get().quick_check!=="ok")throw new Error("SQLite integrity check failed");
+    if(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='state'").get()){
+     const row=db.prepare("SELECT * FROM state WHERE id=1").get();
+     if(row){
+      const blocks=db.prepare("SELECT height,json FROM blocks ORDER BY height").all();
+      if(blocks.some((item,index)=>item.height!==index))throw new Error("SQLite block sequence mismatch");
+      row.blocks=blocks.map(item=>item.json);
+      if(hash({kind:row.kind,payload:row.payload,blocks:row.blocks})!==row.digest)throw new Error("SQLite state checksum mismatch");
+      this.state=decode(row);this.revision=row.revision;this.blockRows=row.blocks;this.loaded=true;
+     }
+    }
+    db.exec("COMMIT");
+   }finally{db.close();}
   }
-  this.loaded=true;return this.state===null?null:copy(this.state);
+  if(!this.loaded){this.state=await new LegacyStateReader(this.directory).load();this.blockRows=[];this.loaded=true;}
+  return clone(this.state);
  }
- save(stateOrProvider) {
-  try{this.assertWritable();if(this.pending.length>=this.maxQueued)throw new Error("Storage queue is full");}
-  catch(error){return Promise.reject(error);}
-  // Values freeze now. Providers explicitly select current state at group commit;
-  // the server verifies that each acknowledged transaction still exists afterward.
-  let value;try{value=typeof stateOrProvider==="function"?stateOrProvider:copy(stateOrProvider);}
-  catch(error){return Promise.reject(error);}
+ save(stateOrProvider){
+  let value;try{this.assertWritable();value=typeof stateOrProvider==="function"?stateOrProvider:clone(stateOrProvider);}catch(error){return Promise.reject(error);}
   this.stats.saves++;
-  const promise=new Promise((resolve,reject)=>this.pending.push({value,resolve,reject}));
-  this.schedule();return promise;
+  const promise=new Promise((resolve,reject)=>this.pending.push({value,resolve,reject}));this.schedule();return promise;
  }
- schedule(){if(this.running||this.timer||!this.pending.length)return;
-  this.timer=setTimeout(()=>{this.timer=null;this.flush();},this.batchMs);}
- async flush() {
-  if(this.running)return;
-  this.running=true;const group=this.pending.splice(0);
+ schedule(){if(this.running||this.timer||!this.pending.length)return;this.timer=setTimeout(()=>{this.timer=null;this.flush();},this.batchMs);}
+ async flush(){
+  if(this.running)return;this.running=true;const group=this.pending.splice(0);
   try{await this.commit(group.at(-1).value);for(const item of group)item.resolve();}
   catch(error){this.error=error;for(const item of [...group,...this.pending.splice(0)])item.reject(error);}
   finally{this.running=false;this.schedule();}
  }
- async syncDirectory(directory=this.directory){const handle=await this.io.open(directory,"r");try{await handle.sync();}finally{await handle.close();}}
- async prepare() {
-  const first=await this.io.mkdir(this.directory,{recursive:true});
+ async syncDirectory(path=this.directory){const file=await open(path,"r");try{await file.sync();}finally{await file.close();}}
+ async initialize(){
+  if(this.db)return;
+  const first=await mkdir(this.directory,{recursive:true,mode:0o700});
   if(first){const stop=dirname(resolve(first));for(let path=this.directory;;path=dirname(path)){await this.syncDirectory(path);if(path===stop)break;}}
-  if(this.stats.recoveredPartialBytes){const handle=await this.io.open(this.journal,"r+");
-   try{await handle.truncate(this.validJournalBytes);await handle.sync();}finally{await handle.close();}
-   this.stats.recoveredPartialBytes=0;}
- }
- async commit(value) {
-  if(!this.loaded)await this.load();await this.prepare();
-  // Fence old binaries before the first new-format acknowledgment: they must
-  // reject version 2 instead of silently loading an obsolete version-1 snapshot.
-  if(!this.checkpointV2)await this.checkpoint({rotate:false});
-  const snapshot=typeof value==="function"?value():value;
-  const payload={version:1,sequence:this.sequence+1,previous:this.head,update:updateFor(this.state,snapshot)};
-  // Serialize before I/O can allow mutation of the live chain.
-  const record=JSON.parse(JSON.stringify({...payload,checksum:digest(payload)})),bytes=JSON.stringify(record)+"\n";
-  const handle=await this.io.open(this.journal,"a",0o600);
+  const created=await open(this.database,"a",0o600);await created.close();await chmod(this.database,0o600);
+  const db=new DatabaseSync(this.database);
   try{
-   if((await handle.stat()).size!==this.expectedJournalBytes)throw new Error("Journal changed outside this writer; stop and inspect the data directory");
-   await handle.writeFile(bytes);
-   const expected=this.expectedJournalBytes+Buffer.byteLength(bytes);
-   if((await handle.stat()).size!==expected)throw new Error("Concurrent journal modification detected");
-   await handle.sync();this.expectedJournalBytes=expected;
-  }finally{await handle.close();}
-  await this.syncDirectory();
-  this.state=applyUpdate(this.state,record.update);this.sequence=record.sequence;this.head=record.checksum;
-  this.stats.commits++;this.stats.bytesWritten+=Buffer.byteLength(bytes);
-  if(this.sequence%this.checkpointEvery===0)await this.checkpoint();
+   db.exec("PRAGMA busy_timeout=100; PRAGMA journal_mode=DELETE; PRAGMA synchronous=EXTRA; PRAGMA trusted_schema=OFF;");
+   if(db.prepare("PRAGMA synchronous").get().synchronous!==3)throw new Error("SQLite EXTRA synchronization unavailable");
+   db.exec("CREATE TABLE IF NOT EXISTS state(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,digest TEXT NOT NULL); CREATE TABLE IF NOT EXISTS blocks(height INTEGER PRIMARY KEY,json TEXT NOT NULL);");
+   await this.syncDirectory();this.db=db;
+  }catch(error){db.close();throw error;}
  }
- async checkpoint({rotate=true}={}) {
-  const journal={sequence:this.sequence,head:this.head},state=this.state;
-  const bytes=JSON.stringify({format:"korek-chain-state",version:2,savedAt:Date.now(),state,journal,checksum:digest({state,journal})});
-  const temporary=this.file+"."+randomUUID()+".tmp",handle=await this.io.open(temporary,"wx",0o600);
-  try{await handle.writeFile(bytes);await handle.sync();}finally{await handle.close();}
-  await this.io.rename(temporary,this.file);await this.syncDirectory();
-  this.checkpointV2=true;
-  // Durable checkpoint first; recovery also accepts the old untrimmed journal.
-  if(rotate){const log=await this.io.open(this.journal,"r+");
-   try{await log.truncate(0);await log.sync();this.expectedJournalBytes=0;}finally{await log.close();}}
-  this.stats.checkpoints++;this.stats.bytesWritten+=Buffer.byteLength(bytes);
+ async fenceLegacyReaders(){
+  try{const legacy=JSON.parse(await readFile(this.file,"utf8"));
+   if([1,2].includes(legacy.version)){
+    try{await copyFile(this.file,this.file+".pre-sqlite",constants.COPYFILE_EXCL);}catch(error){if(error.code!=="EEXIST")throw error;}
+    const backup=await open(this.file+".pre-sqlite","r");try{await backup.sync();}finally{await backup.close();}
+   }
+  }catch(error){if(error.code!=="ENOENT")throw error;}
+  const temporary=this.file+"."+randomUUID()+".tmp",file=await open(temporary,"wx",0o600);
+  try{await file.writeFile(JSON.stringify({format:"korek-chain-state",version:3,database:"chain.sqlite"}));await file.sync();}finally{await file.close();}
+  await rename(temporary,this.file);await this.syncDirectory();this.fenced=true;
  }
+ async commit(value){
+  if(!this.loaded)await this.load();await this.initialize();
+  const next=representation(typeof value==="function"?value():value),digest=hash(next),db=this.db;
+  let rows=0;
+  db.exec("BEGIN IMMEDIATE");
+  try{
+   const revision=db.prepare("SELECT revision FROM state WHERE id=1").get()?.revision||0;
+   if(revision!==this.revision)throw new Error("Stale storage writer; reload before writing");
+   let common=0;while(common<next.blocks.length&&common<this.blockRows.length&&next.blocks[common]===this.blockRows[common])common++;
+   db.prepare("DELETE FROM blocks WHERE height>=?").run(common);
+   const insert=db.prepare("INSERT INTO blocks(height,json) VALUES(?,?)");
+   for(let i=common;i<next.blocks.length;i++){insert.run(i,next.blocks[i]);rows++;}
+   db.prepare("INSERT INTO state(id,revision,kind,payload,digest) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,kind=excluded.kind,payload=excluded.payload,digest=excluded.digest").run(revision+1,next.kind,next.payload,digest);
+   if(this.beforeCommit)this.beforeCommit({database:db,revision:revision+1}); // Synchronous fault-injection seam.
+   db.exec("COMMIT");
+   this.revision=revision+1;this.blockRows=next.blocks;this.state=decode(next);
+  }catch(error){try{db.exec("ROLLBACK");}catch{}throw error;}
+  if(!this.fenced)await this.fenceLegacyReaders();
+  this.stats.commits++;this.stats.rowsWritten+=rows+1;
+ }
+ close(){if(this.running||this.pending.length)throw new Error("Wait for pending saves before closing");this.db?.close();this.db=null;this.closed=true;}
 }

@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { phaseMetrics } from "./metrics.mjs";
 
-if (process.argv.slice(2).some(x => !["--fixed","--durable"].includes(x)) || process.argv.includes("--fixed") && process.argv.includes("--durable")) throw new Error("Use no flag, --fixed, or --durable");
-const folder = process.argv.includes("--durable") ? "./results/durable/" : process.argv.includes("--fixed") ? "./results/fixed/" : "./results/";
+if (process.argv.slice(2).some(x => !["--fixed","--durable","--sqlite"].includes(x)) || process.argv.slice(2).length>1) throw new Error("Use no flag, --fixed, --durable, or --sqlite");
+const folder = process.argv.includes("--sqlite") ? "./results/replay-sqlite/" : process.argv.includes("--durable") ? "./results/durable/" : process.argv.includes("--fixed") ? "./results/fixed/" : "./results/";
 const report = JSON.parse(await readFile(new URL(`${folder}benchmark.json`, import.meta.url), "utf8"));
 const trace = await readFile(new URL(`${folder}latency-samples.jsonl`, import.meta.url), "utf8");
 assert.equal(createHash("sha256").update(trace).digest("hex"), report.rawTimingTrace.sha256);

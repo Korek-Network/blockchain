@@ -54,7 +54,7 @@ The temporary Planck treasury address is `krk1d1ee0261919684cf511b9bd702697b5c48
 
 Running a node is for operators and developers. It is not required for ordinary public testnet mining.
 
-Requirements: Linux, macOS or WSL2; Git; Node.js 22 or newer.
+Requirements: Linux, macOS or WSL2; Git; Node.js 24 or newer on this experimental branch. See [migration limits](REPLAY_SQLITE_FIX.md); the existing downloadable binaries do not include these changes.
 
 ```bash
 git clone https://github.com/Korek-Network/blockchain.git
