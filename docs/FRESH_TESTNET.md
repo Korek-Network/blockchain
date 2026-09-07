@@ -28,11 +28,12 @@ Responses identify the transaction as included and explicitly not finalized.
 An empty wallet rejects claims. The old direct-mint method remains only for
 offline historical tests; it is no longer exposed through the HTTP faucet.
 
-Use a fresh faucet key for this network. Existing v3 transaction signatures do
-not include network identity; distinct genesis and peer IDs do not provide
-transaction-level cross-network replay protection when keys are reused. A
-network-bound transaction version and corresponding wallet support are a further
-upgrade before broad public use.
+Version 4 transfer signatures include a protocol prefix and network identity.
+Fresh networks reject versions 1–3 both on submission and when restoring history.
+The legacy testnet-1 retains old transaction support. The faucet now signs v4.
+The companion wallet branch signs v4 for testnet-2, and its miner rejects templates
+for another network or wallet. Deploy the matching app; old apps are incompatible.
+Use a dedicated faucet key and keep its private material out of shared backups.
 
 This change improves faucet accounting, not measured TPS. Follow the live upgrade
 rehearsal checklist, verify new wallet/miner compatibility and archive recovery,
