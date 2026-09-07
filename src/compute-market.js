@@ -1,0 +1,120 @@
+import { addressFromPublicKey,cryptoProvider,sha256 } from "./crypto.js";
+import { NETWORK } from "./config.js";
+
+export const COMPUTE_MARKET_VERSION="korek-compute-market/1";
+export const COMPUTE_WORKER_SHARE_BPS=9_000n;
+export const COMPUTE_VERIFIER_SHARE_BPS=1_000n;
+export const COMPUTE_MAX_JOB_LIFETIME_MS=7*24*60*60*1000;
+export const COMPUTE_MAX_CLOCK_SKEW_MS=5*60*1000;
+export const COMPUTE_PROFILES=Object.freeze([
+  "sha256-batch-v1",
+  "matrix-multiply-int-v1",
+]);
+
+const addressPattern=/^krk1[0-9a-f]{40}$/;
+const hashPattern=/^[0-9a-f]{64}$/i;
+const schemes=new Set(["transparent-v1","wormhole-v1"]);
+const normalizeHash=value=>String(value||"").toLowerCase();
+const assertAddress=value=>{if(!addressPattern.test(String(value||"")))throw new Error("Invalid KOREK address")};
+const assertHash=(value,label)=>{if(!hashPattern.test(String(value||"")))throw new Error(`${label} must be a 32-byte SHA-256 hash`)};
+const assertScheme=value=>{if(!schemes.has(value))throw new Error("Unsupported address scheme")};
+const assertFresh=(timestamp,now)=>{if(!Number.isSafeInteger(timestamp)||Math.abs(now-timestamp)>COMPUTE_MAX_CLOCK_SKEW_MS)throw new Error("Compute request timestamp is outside the allowed clock window")};
+const assertSignedBy=(input,address,scheme,message)=>{assertAddress(address);assertScheme(scheme);if(addressFromPublicKey(input.publicKey,scheme)!==address)throw new Error("Public key mismatch");if(!cryptoProvider.verify(message,input.signature,input.publicKey))throw new Error("Invalid signature")};
+const credit=(chain,address,amount)=>chain.balances.set(address,(chain.balances.get(address)||0n)+amount);
+const debit=(chain,address,amount)=>chain.balances.set(address,(chain.balances.get(address)||0n)-amount);
+const reservedTransfers=(chain,address)=>chain.pending.filter(tx=>tx.from===address).reduce((sum,tx)=>sum+BigInt(tx.amount)+BigInt(tx.fee),0n);
+const availableBalance=(chain,address)=>(chain.balances.get(address)||0n)-reservedTransfers(chain,address);
+
+export const computeJobMessage=input=>[
+  "compute-job-v1",NETWORK.networkId,input.creator,input.addressScheme||"transparent-v1",input.workloadProfile,
+  normalizeHash(input.inputHash),input.modelHash?normalizeHash(input.modelHash):"-",String(input.payment),String(input.deadline),
+  String(input.verificationThreshold||2),String(input.timestamp),
+].join("|");
+export const computeClaimMessage=input=>["compute-claim-v1",NETWORK.networkId,input.jobId,input.worker,input.addressScheme||"transparent-v1",String(input.timestamp)].join("|");
+export const computeResultMessage=input=>["compute-result-v1",NETWORK.networkId,input.jobId,input.worker,input.addressScheme||"transparent-v1",normalizeHash(input.outputHash),String(input.timestamp)].join("|");
+export const computeVoteMessage=input=>["compute-vote-v1",NETWORK.networkId,input.jobId,input.verifier,input.addressScheme||"transparent-v1",normalizeHash(input.outputHash),input.approve?"1":"0",String(input.timestamp)].join("|");
+export const computeCancelMessage=input=>["compute-cancel-v1",NETWORK.networkId,input.jobId,input.creator,input.addressScheme||"transparent-v1",String(input.timestamp)].join("|");
+
+const publicVote=vote=>({verifier:vote.verifier,outputHash:vote.outputHash,approve:vote.approve,timestamp:vote.timestamp});
+const publicJob=job=>({
+  id:job.id,version:job.version,status:job.status,creator:job.creator,workloadProfile:job.workloadProfile,inputHash:job.inputHash,modelHash:job.modelHash,
+  payment:job.payment,verificationThreshold:job.verificationThreshold,createdAt:job.createdAt,deadline:job.deadline,worker:job.worker||null,claimedAt:job.claimedAt||null,
+  outputHash:job.outputHash||null,submittedAt:job.submittedAt||null,votes:(job.votes||[]).map(publicVote),settledAt:job.settledAt||null,rejectedAt:job.rejectedAt||null,
+  cancelledAt:job.cancelledAt||null,expiredAt:job.expiredAt||null,workerPayout:job.workerPayout||null,verifierPayouts:job.verifierPayouts||null,receipt:job.receipt||null,
+});
+
+export class ComputeMarket{
+  constructor(chain,state=null){this.chain=chain;this.jobs=new Map();if(state)this.restore(state)}
+
+  createJob(input,now=Date.now()){
+    const creator=String(input.creator||""),addressScheme=String(input.addressScheme||"transparent-v1"),workloadProfile=String(input.workloadProfile||""),timestamp=Number(input.timestamp),deadline=Number(input.deadline),threshold=Number(input.verificationThreshold||2);
+    assertFresh(timestamp,now);assertAddress(creator);assertScheme(addressScheme);
+    if(!COMPUTE_PROFILES.includes(workloadProfile))throw new Error("Unsupported compute workload profile");
+    assertHash(input.inputHash,"inputHash");if(input.modelHash!==undefined&&input.modelHash!==null)assertHash(input.modelHash,"modelHash");
+    if(!Number.isSafeInteger(deadline)||deadline<=now||deadline-now>COMPUTE_MAX_JOB_LIFETIME_MS)throw new Error("Compute job deadline must be within the next 7 days");
+    if(!Number.isInteger(threshold)||threshold<2||threshold>5)throw new Error("verificationThreshold must be between 2 and 5");
+    const payment=BigInt(input.payment);if(payment<=0n)throw new Error("Compute job payment must be positive");
+    const canonical={...input,creator,addressScheme,workloadProfile,deadline,verificationThreshold:threshold,timestamp};const message=computeJobMessage(canonical);assertSignedBy(input,creator,addressScheme,message);
+    const id=sha256(`${message}|${input.signature}`);if(this.jobs.has(id))throw new Error("Duplicate compute job");if(availableBalance(this.chain,creator)<payment)throw new Error("Insufficient available balance for compute escrow");
+    debit(this.chain,creator,payment);
+    const job={id,version:COMPUTE_MARKET_VERSION,status:"queued",creator,addressScheme,workloadProfile,inputHash:normalizeHash(input.inputHash),modelHash:input.modelHash?normalizeHash(input.modelHash):null,payment:payment.toString(),verificationThreshold:threshold,createdAt:now,deadline,creatorPublicKey:input.publicKey,creatorSignature:input.signature,votes:[]};
+    this.jobs.set(id,job);return publicJob(job);
+  }
+
+  claimJob(jobId,input,now=Date.now()){
+    const job=this.require(jobId);this.expireIfNeeded(job,now);if(job.status!=="queued")throw new Error("Compute job is not available to claim");
+    const worker=String(input.worker||""),addressScheme=String(input.addressScheme||"transparent-v1"),timestamp=Number(input.timestamp);assertFresh(timestamp,now);if(worker===job.creator)throw new Error("Job creator cannot claim their own compute job");
+    const canonical={...input,jobId:job.id,worker,addressScheme,timestamp};assertSignedBy(input,worker,addressScheme,computeClaimMessage(canonical));
+    job.status="claimed";job.worker=worker;job.workerAddressScheme=addressScheme;job.workerPublicKey=input.publicKey;job.workerSignature=input.signature;job.claimedAt=now;return publicJob(job);
+  }
+
+  submitResult(jobId,input,now=Date.now()){
+    const job=this.require(jobId);this.expireIfNeeded(job,now);if(job.status!=="claimed")throw new Error("Compute job is not awaiting a worker result");
+    const worker=String(input.worker||""),addressScheme=String(input.addressScheme||job.workerAddressScheme||"transparent-v1"),timestamp=Number(input.timestamp);assertFresh(timestamp,now);if(worker!==job.worker)throw new Error("Only the claimed worker can submit this result");assertHash(input.outputHash,"outputHash");
+    const canonical={...input,jobId:job.id,worker,addressScheme,timestamp};assertSignedBy(input,worker,addressScheme,computeResultMessage(canonical));
+    job.status="verifying";job.outputHash=normalizeHash(input.outputHash);job.resultPublicKey=input.publicKey;job.resultSignature=input.signature;job.submittedAt=now;return publicJob(job);
+  }
+
+  vote(jobId,input,now=Date.now()){
+    const job=this.require(jobId);this.expireIfNeeded(job,now);if(job.status!=="verifying")throw new Error("Compute job is not awaiting verification");
+    const verifier=String(input.verifier||""),addressScheme=String(input.addressScheme||"transparent-v1"),timestamp=Number(input.timestamp);assertFresh(timestamp,now);
+    if(typeof input.approve!=="boolean")throw new Error("approve must be a boolean");const approve=input.approve;
+    if(verifier===job.creator||verifier===job.worker)throw new Error("Creator and worker cannot verify this job");if(job.votes.some(vote=>vote.verifier===verifier))throw new Error("Verifier has already voted on this job");
+    assertHash(input.outputHash,"outputHash");const outputHash=normalizeHash(input.outputHash);if(approve&&outputHash!==job.outputHash)throw new Error("Approval must match the worker output hash");
+    const canonical={...input,jobId:job.id,verifier,addressScheme,outputHash,approve,timestamp};assertSignedBy(input,verifier,addressScheme,computeVoteMessage(canonical));
+    job.votes.push({verifier,addressScheme,outputHash,approve,timestamp:now,publicKey:input.publicKey,signature:input.signature});
+    const approvals=job.votes.filter(vote=>vote.approve&&vote.outputHash===job.outputHash),rejections=job.votes.filter(vote=>!vote.approve);
+    if(approvals.length>=job.verificationThreshold)this.settle(job,approvals.slice(0,job.verificationThreshold),now);else if(rejections.length>=job.verificationThreshold)this.reject(job,now);
+    return publicJob(job);
+  }
+
+  cancelJob(jobId,input,now=Date.now()){
+    const job=this.require(jobId);this.expireIfNeeded(job,now);if(job.status!=="queued")throw new Error("Only a queued compute job can be cancelled");
+    const creator=String(input.creator||""),addressScheme=String(input.addressScheme||job.addressScheme||"transparent-v1"),timestamp=Number(input.timestamp);assertFresh(timestamp,now);if(creator!==job.creator)throw new Error("Only the job creator can cancel this job");
+    const canonical={...input,jobId:job.id,creator,addressScheme,timestamp};assertSignedBy(input,creator,addressScheme,computeCancelMessage(canonical));
+    credit(this.chain,job.creator,BigInt(job.payment));job.status="cancelled";job.cancelledAt=now;return publicJob(job);
+  }
+
+  expireJob(jobId,now=Date.now()){
+    const job=this.require(jobId);if(!["queued","claimed","verifying"].includes(job.status))throw new Error("Compute job is already final");if(now<=job.deadline)throw new Error("Compute job has not reached its deadline");this.refund(job,"expired",now);return publicJob(job);
+  }
+
+  expireIfNeeded(job,now){if(!["queued","claimed","verifying"].includes(job.status)||now<=job.deadline)return false;this.refund(job,"expired",now);return true}
+  refund(job,status,now){credit(this.chain,job.creator,BigInt(job.payment));job.status=status;if(status==="expired")job.expiredAt=now;else if(status==="rejected")job.rejectedAt=now}
+
+  settle(job,approvals,now){
+    const payment=BigInt(job.payment),workerPayout=payment*COMPUTE_WORKER_SHARE_BPS/10_000n,verifierPool=payment-workerPayout,count=BigInt(approvals.length),base=verifierPool/count,remainder=verifierPool%count,payouts={};
+    credit(this.chain,job.worker,workerPayout);
+    approvals.forEach((vote,index)=>{const amount=base+(index===0?remainder:0n);credit(this.chain,vote.verifier,amount);payouts[vote.verifier]=amount.toString()});
+    job.status="settled";job.settledAt=now;job.workerPayout=workerPayout.toString();job.verifierPayouts=payouts;
+    job.receipt={version:"korek-compute-receipt/1",jobId:job.id,workloadProfile:job.workloadProfile,inputHash:job.inputHash,modelHash:job.modelHash,outputHash:job.outputHash,worker:job.worker,verifiers:approvals.map(vote=>vote.verifier),payment:job.payment,workerPayout:job.workerPayout,verifierPayouts:payouts,settledAt:now};job.receipt.hash=sha256(JSON.stringify(job.receipt));
+  }
+
+  reject(job,now){this.refund(job,"rejected",now);job.receipt={version:"korek-compute-receipt/1",jobId:job.id,status:"rejected",payment:job.payment,refundedTo:job.creator,rejectedAt:now};job.receipt.hash=sha256(JSON.stringify(job.receipt))}
+  require(jobId){const job=this.jobs.get(String(jobId||""));if(!job)throw new Error("Compute job not found");return job}
+  job(jobId){return publicJob(this.require(jobId))}
+  list({status=null,limit=100}={}){const capped=Math.max(1,Math.min(500,Number(limit)||100));return[...this.jobs.values()].filter(job=>!status||job.status===status).sort((a,b)=>b.createdAt-a.createdAt).slice(0,capped).map(publicJob)}
+  stats(){const jobs=[...this.jobs.values()],escrowed=jobs.filter(job=>["queued","claimed","verifying"].includes(job.status)).reduce((sum,job)=>sum+BigInt(job.payment),0n);return{version:COMPUTE_MARKET_VERSION,supportedProfiles:COMPUTE_PROFILES,workerShareBps:COMPUTE_WORKER_SHARE_BPS.toString(),verifierShareBps:COMPUTE_VERIFIER_SHARE_BPS.toString(),jobs:jobs.length,queued:jobs.filter(job=>job.status==="queued").length,claimed:jobs.filter(job=>job.status==="claimed").length,verifying:jobs.filter(job=>job.status==="verifying").length,settled:jobs.filter(job=>job.status==="settled").length,escrowed:escrowed.toString()}}
+  snapshot(){return{version:1,networkId:NETWORK.networkId,jobs:[...this.jobs.values()]}}
+  restore(state){if(state?.version!==1||state.networkId!==NETWORK.networkId||!Array.isArray(state.jobs))throw new Error("Unsupported compute market state");this.jobs=new Map(state.jobs.map(job=>[job.id,{...job,votes:Array.isArray(job.votes)?job.votes:[]}]))}
+}
