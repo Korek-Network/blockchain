@@ -1,15 +1,13 @@
 # KOREK Planck testnet guide
 
-The setup guide has moved to [Mining and running a KOREK Planck testnet node](MINING_AND_NODE.md).
+The current instructions are maintained in [Mining and running a KOREK Planck testnet node](MINING_AND_NODE.md).
 
-Quick start on macOS, Linux, or WSL2:
+For ordinary testnet mining:
 
-```bash
-git clone https://github.com/Korek-Network/blockchain.git
-cd blockchain
-npm test
-chmod +x scripts/setup-miner.sh
-./scripts/setup-miner.sh
-```
+1. Install [KOREK Miner](https://github.com/Korek-Network/korekUI/releases/tag/korekui-testnet-latest).
+2. Create or restore a wallet.
+3. Use `https://rpc.planck.korek.network` for both connection fields.
+4. Choose CPU and/or experimental WebGPU.
+5. Start mining.
 
-Planck v0.2 is unaudited, in-memory testnet software. Test KRK has no monetary value.
+You do not need to run a local node. Planck is unaudited testnet software; test KRK has no monetary value and will not migrate to mainnet.

@@ -1,44 +1,38 @@
 # Running a local KOREK P2P testnet
 
-Planck v0.6 can run multiple node processes that authenticate messages with their independent node keys, discover advertised peers, and synchronize to the longest reachable chain.
+Planck v0.7.1 can run multiple node processes with independent signed identities and synchronize a longer compatible test chain.
 
-> This is testnet synchronization, not production consensus. Only connect nodes you control. Full block-by-block state execution, cumulative-work fork choice, peer scoring, transport encryption and adversarial testing remain required before mainnet.
+> This is testnet synchronization, not production hostile-network consensus. Use isolated development machines or a private LAN.
 
-## Prepare two node identities
+## Prepare two identities
 
 ```bash
 cd ~/blockchain
 git pull --ff-only
+npm install
 npm test
-
 mkdir -p local-p2p
-node scripts/node-key.mjs local-p2p/node-a.p2p
-node scripts/node-key.mjs local-p2p/node-b.p2p
+npm run node:key -- local-p2p/node-a.p2p
+npm run node:key -- local-p2p/node-b.p2p
 ```
 
-## Terminal 1: seed node and miner
-
-Replace the inner hash with the 64-character value from KOREK Wallet:
+## Terminal 1: seed node
 
 ```bash
 cd ~/blockchain
-
 KOREK_PORT=8366 KOREK_MINER_PORT=9834 node src/server.js \
   --name seed-node \
   --validator \
   --node-key-file local-p2p/node-a.p2p \
   --p2p-port 9333 \
   --p2p-advertise http://127.0.0.1:9333 \
-  --data-dir local-p2p/node-a-data \
-  --mine \
-  --rewards-inner-hash YOUR_64_CHARACTER_INNER_HASH
+  --data-dir local-p2p/node-a-data
 ```
 
 ## Terminal 2: syncing peer
 
 ```bash
 cd ~/blockchain
-
 KOREK_PORT=8367 KOREK_MINER_PORT=9835 node src/server.js \
   --name peer-node \
   --validator \
@@ -49,9 +43,11 @@ KOREK_PORT=8367 KOREK_MINER_PORT=9835 node src/server.js \
   --data-dir local-p2p/node-b-data
 ```
 
-Within a few seconds, the second terminal logs a synchronization message and its height catches the seed node.
+## Create blocks for synchronization testing
 
-## Verify both nodes
+Connect the current KOREK Miner to `http://127.0.0.1:8366` for both local connection fields and mine to a test wallet. Protocol v3 performs the proof on the miner computer; the node no longer needs `--mine` or a pasted rewards inner hash.
+
+## Verify
 
 ```bash
 curl http://127.0.0.1:8366/api/status
@@ -59,15 +55,6 @@ curl http://127.0.0.1:8367/api/status
 curl http://127.0.0.1:8367/api/peers
 ```
 
-The second status response should show:
+After synchronization, the peer should report P2P enabled, one connected peer and an idle sync state near the seed height.
 
-- `p2p.enabled: true`
-- `p2p.connectedPeers: 1`
-- `sync.state: "Idle"` after catching up
-- approximately the same block height as the seed
-
-## Connect computers on a LAN
-
-On the seed computer, replace `127.0.0.1` in `--p2p-advertise` with its LAN address. On the peer computer, use that same address in `--peer`. Permit only the selected P2P TCP port through the local firewall.
-
-Do not expose this prototype P2P or miner protocol directly to the public internet.
+For separate LAN computers, replace loopback advertise/peer URLs with private LAN addresses and allow only the selected P2P port between those machines. Do not expose this prototype P2P service or raw miner port directly to the public internet.

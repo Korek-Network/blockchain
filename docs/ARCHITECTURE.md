@@ -1,25 +1,37 @@
 # KOREK architecture
 
-KOREK is designed as two connected systems: a settlement/security network and a useful-compute market. Consensus must remain safe when no AI jobs are available, so v0.1 falls back to ordinary proof of work and records verified job references in blocks.
+KOREK is an experimental proof-of-work settlement network with a research path toward independently verifiable distributed computation. Consensus must remain safe when no useful-compute jobs are available, so useful work cannot replace the chain's independently verifiable security proof without a reviewed protocol.
 
-The local testnet uses a centralized rapid-finality sealer for near-instant transaction testing. It seals a submitted transfer immediately without a block reward; manual mining remains available for reward testing. This is a development convenience, not the final decentralized consensus design or evidence of production throughput.
+Planck uses rapid testnet transfer finality separately from reward blocks. A transfer-finality event does not mint KRK or advance the reward-halving counter. This is a testnet mechanism, not evidence of production consensus or throughput.
 
-## Supply model
+## Supply model under test
 
-KRK has a fixed 365 million mainnet allocation: 292 million (80%) mining, 36.5 million (10%) AI ecosystem, 18.25 million (5%) development, and 18.25 million (5%) security/community. Reward blocks target one second, start at exactly 1.15740740 KRK, and halve every 126,144,000 reward blocks. Rapid-finality transaction blocks do not advance this counter. Faucet KRK exists only in the in-memory testnet accounting domain and never consumes mainnet allocation.
+KRK has a proposed hard cap of 210,000,000 coins at eight decimals and zero genesis premine. All issuance begins with accepted proof-of-work blocks.
 
-## Proposed production components
+- Initial total block subsidy: 50 KRK
+- Reward-block target: 60 seconds
+- Halving interval: 2,100,000 reward blocks
+- Successful miner: 95% of subsidy plus 100% of transaction fees
+- Public treasury: 5% of subsidy
+- Founder/team/private genesis allocation: none
 
-1. **Consensus:** fork-choice, difficulty adjustment, peer discovery and protection against replay, eclipse and majority attacks.
-2. **Execution:** deterministic transaction runtime with parallel conflict scheduling.
-3. **Compute market:** clients submit priced AI jobs; schedulers match compatible miners; escrow releases KRK after verification.
-4. **Verification:** multiple miners execute sampled jobs, challengers dispute results, and dishonest participants lose stake.
-5. **Crypto agility:** versioned address and signature schemes allow migration from hybrid classical/post-quantum keys to audited post-quantum-only keys.
-6. **Clients:** node, pool, wallet, desktop miner, explorer and developer SDK.
+At the initial subsidy, the miner receives 47.5 KRK plus fees and the treasury receives 2.5 KRK. Integer base-unit arithmetic determines later fractional payouts. Faucet KRK is test-only, excluded from issuance counters, and never migrates to mainnet.
 
-## Important unresolved research
+## Current components
 
-- Many AI workloads are nondeterministic across GPU models. KOREK needs deterministic kernels or tolerance-aware commitments.
-- Replicating every job wastes compute; probabilistic verification changes the economic security model.
-- Post-quantum signatures are much larger than Ed25519 signatures and materially affect bandwidth and TPS.
-- 100M TPS cannot be promised without defining finality, transaction complexity, hardware, shard count and benchmark methodology.
+1. **Ledger and execution:** signed transfers, balances, fee pool and deterministic block validation.
+2. **Mining:** wallet-signed Protocol v3 templates and independently verified SHA-256 proofs from CPU or experimental WebGPU clients.
+3. **Networking:** signed node identities, peer discovery and longer-chain Planck synchronization.
+4. **Storage:** checksummed persistent snapshots with restart recovery.
+5. **Clients:** public explorer, desktop miner, desktop wallet and node packages.
+6. **Crypto boundary:** versioned account formats designed to permit reviewed future migration.
+
+## Required production work
+
+- Cumulative-work fork choice and difficulty adjustment must be independently reviewed.
+- P2P needs adversarial peer scoring, eclipse resistance, resource limits and hostile-fork testing.
+- WebGPU kernels require cross-vendor validation and reproducible benchmarks.
+- Useful-compute jobs require deterministic profiles, commitments and an auditable verification model.
+- Wallet and node releases need reproducible signing and independent security audit.
+- Treasury keys and governance must be public, multisignature and established before mainnet.
+- Performance claims require reproducible workloads, hardware definitions and finality measurements.
